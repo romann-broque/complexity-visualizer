@@ -1,125 +1,134 @@
+"""Main graph building orchestration.
+
+This module coordinates the parsing, filtering, metrics computation,
+and output generation for dependency graphs.
+"""
 from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Tuple
+from typing import Dict, List, Optional
 
 from .models import GraphSnapshot
-from .dot_parser import parse_dot_directory
-from .metrics import compute_metrics, build_dsm
-from .util_io import ensure_parent_dir, write_json
+from .dot_parser import DotFileParser
+from .graph_filter import GraphFilter
+from .metrics import MetricsCalculator
+from .node_formatter import NodeFormatter
+from .io_utils import FileWriter
 
-from typing import Iterable, Set
 
-def _filter_snapshot_by_prefixes(
-        snapshot: GraphSnapshot,
-        include_prefixes: Iterable[str],
-) -> GraphSnapshot:
-    """
-    Conserve uniquement les nœuds dont l'id commence par l'un des préfixes fournis
-    et les arêtes entièrement internes à ce sous-graphe.
-    """
-    prefixes: Tuple[str, ...] = tuple(include_prefixes)
-    if not prefixes:
-        return snapshot
+class GraphBuilder:
+    """Orchestrates the building of dependency graphs from DOT files."""
 
-    # 1) Nodes to keep
-    kept_ids: Set[str] = {
-        n.id for n in snapshot.nodes
-        if any(n.id.startswith(p) for p in prefixes)
-    }
+    @staticmethod
+    def build_graph(
+            dot_directory: str,
+            output_graph_path: str,
+            output_dsm_path: Optional[str] = None,
+            include_prefixes: Optional[List[str]] = None,
+    ) -> Dict[str, object]:
+        """Parse DOT files, compute metrics, and write output files.
+        
+        This is the main entry point for graph building. It:
+        1. Parses all DOT files in the directory
+        2. Optionally filters by package prefixes
+        3. Computes all metrics
+        4. Writes graph.json and optionally DSM.json
+        
+        Args:
+            dot_directory: Path to directory containing .dot files
+            output_graph_path: Where to write graph.json
+            output_dsm_path: Optional path for DSM.json output
+            include_prefixes: Optional list of package prefixes to include
+            
+        Returns:
+            Dictionary with build statistics and output paths
+        """
+        FileWriter.ensure_parent_directory(output_graph_path)
+        if output_dsm_path:
+            FileWriter.ensure_parent_directory(output_dsm_path)
 
-    # 2) Filtered nodes, preserved order
-    nodes_kept = [n for n in snapshot.nodes if n.id in kept_ids]
+        # Parse DOT files
+        snapshot = DotFileParser.parse_directory(dot_directory)
+        snapshot.meta.setdefault(
+            "generatedAt",
+            datetime.now(timezone.utc).isoformat()
+        )
+        # Apply prefix filter if specified
+        if include_prefixes:
+            snapshot = GraphFilter.filter_by_prefixes(snapshot, include_prefixes)
 
-    # 3) Edges with two kept ends
-    edges_kept = [
-        e for e in snapshot.edges
-        if e.from_id in kept_ids and e.to_id in kept_ids
-    ]
+        # Compute metrics
+        metrics = MetricsCalculator.compute_metrics(snapshot)
 
-    # 4) Filtered Meta (ex: unresolvedIds)
-    meta = dict(snapshot.meta)
-    if "unresolvedIds" in meta:
-        meta["unresolvedIds"] = [i for i in meta["unresolvedIds"] if i in kept_ids]
+        # Build output payload
+        graph_payload = GraphBuilder._build_graph_payload(snapshot, metrics)
+        FileWriter.write_json(output_graph_path, graph_payload)
 
-    return GraphSnapshot(nodes=nodes_kept, edges=edges_kept, meta=meta)
+        # Optionally write DSM
+        dsm_output_path = None
+        if output_dsm_path:
+            dsm_data = MetricsCalculator.build_dependency_structure_matrix(snapshot)
+            FileWriter.write_json(output_dsm_path, dsm_data)
+            dsm_output_path = output_dsm_path
 
-def _extract_class_name(node_id: str) -> str:
-    """
-    Simple class name from FQCN:
-    - take last segment after '.' or '/' if any
-    - map inner classes A$B -> A.B
-    """
-    right = node_id.rsplit("/", 1)[-1]
-    simple = right.rsplit(".", 1)[-1] if "." in right else right
-    return simple.replace("$", ".")
+        return {
+            "nodeCount": metrics["nodeCount"],
+            "edgeCount": metrics["edgeCount"],
+            "graphPath": output_graph_path,
+            "dsmPath": dsm_output_path,
+        }
 
-def _denormalize_node_metrics(
-        snapshot: GraphSnapshot,
-        metrics: Dict[str, object]
-) -> List[Dict[str, object]]:
-    fan_out: List[int] = metrics["fanOut"]  # type: ignore[index]
-    fan_in: List[int] = metrics["fanIn"]    # type: ignore[index]
-    instability: List[float] = metrics["instability"]  # type: ignore[index]
+    @staticmethod
+    def _build_graph_payload(
+            snapshot: GraphSnapshot,
+            metrics: Dict[str, object],
+    ) -> Dict[str, object]:
+        """Construct the complete graph.json payload.
+        
+        Args:
+            snapshot: The graph data
+            metrics: Computed metrics
+            
+        Returns:
+            Dictionary ready for JSON serialization
+        """
+        formatted_nodes = NodeFormatter.format_nodes_with_metrics(snapshot, metrics)
 
-    unresolved_set = set(snapshot.meta.get("unresolvedIds", []))
+        # Add node order to metrics for DSM correspondence
+        metrics_with_order = {
+            **metrics,
+            "order": [node.id for node in snapshot.nodes],
+        }
 
-    out: List[Dict[str, object]] = []
-    for i, node in enumerate(snapshot.nodes):
-        nid = node.id
-        out.append({
-            "id": nid,
-            "type": node.type,
-            "name": _extract_class_name(nid),
-            "unresolved": (nid in unresolved_set),
-            "metrics": {
-                "fanOut": fan_out[i],
-                "fanIn":  fan_in[i],
-                "stability": 1 - instability[i],
-            },
-        })
-    return out
+        return {
+            "meta": snapshot.meta,
+            "nodes": formatted_nodes,
+            "edges": [asdict(edge) for edge in snapshot.edges],
+            "metrics": metrics_with_order,
+        }
 
+
+# Convenience function for backward compatibility
 def build_graph(
-        dot_dir: str,
-        out_graph: str,
-        out_dsm: Optional[str] = None,
+        dot_directory: str,
+        output_graph_path: str,
+        output_dsm_path: Optional[str] = None,
         include_prefixes: Optional[List[str]] = None,
-) -> dict:
-    """Parse DOT -> (filtre optionnel) -> calcule métriques -> écrit JSON(s)."""
-    ensure_parent_dir(out_graph)
-    if out_dsm:
-        ensure_parent_dir(out_dsm)
-
-    snapshot: GraphSnapshot = parse_dot_directory(dot_dir)
-    snapshot.meta.setdefault("generatedAt", datetime.now(timezone.utc).isoformat())
-
-    # >>> FILTER PER PREFIXES (optional)
-    if include_prefixes:
-        snapshot = _filter_snapshot_by_prefixes(snapshot, include_prefixes)
-
-    metrics = compute_metrics(snapshot)
-    metrics_with_order = {**metrics, "order": [n.id for n in snapshot.nodes]}
-
-    nodes_out = _denormalize_node_metrics(snapshot, metrics)
-
-    payload = {
-        "meta": snapshot.meta,
-        "nodes": nodes_out,
-        "edges": [asdict(e) for e in snapshot.edges],
-        "metrics": metrics_with_order,
-    }
-    write_json(out_graph, payload)
-
-    dsm_written = None
-    if out_dsm:
-        dsm = build_dsm(snapshot)
-        write_json(out_dsm, dsm)
-        dsm_written = out_dsm
-
-    return {
-        "nodeCount": metrics["nodeCount"],
-        "edgeCount": metrics["edgeCount"],
-        "graphPath": out_graph,
-        "dsmPath": dsm_written,
-    }
+) -> Dict[str, object]:
+    """Build a dependency graph from DOT files.
+    
+    Args:
+        dot_directory: Path to directory containing .dot files
+        output_graph_path: Where to write graph.json
+        output_dsm_path: Optional path for DSM.json output
+        include_prefixes: Optional list of package prefixes to include
+        
+    Returns:
+        Dictionary with build statistics and output paths
+    """
+    return GraphBuilder.build_graph(
+        dot_directory,
+        output_graph_path,
+        output_dsm_path,
+        include_prefixes,
+    )
