@@ -11,6 +11,8 @@ replay_pid*
 # --- Java / Build outputs ---
 *.class
 target/
+from/
+dist/
 out/
 build/
 !src/**/build/
