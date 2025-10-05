@@ -1,9 +1,7 @@
-# src/complexity_visualizer/build_graph.py
 from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
-import re
 
 from .models import GraphSnapshot
 from .dot_parser import parse_dot_directory
@@ -22,24 +20,24 @@ def _filter_snapshot_by_prefixes(
     """
     prefixes: Tuple[str, ...] = tuple(include_prefixes)
     if not prefixes:
-        return snapshot  # rien à filtrer
+        return snapshot
 
-    # 1) Sélection des nœuds à garder
+    # 1) Nodes to keep
     kept_ids: Set[str] = {
         n.id for n in snapshot.nodes
         if any(n.id.startswith(p) for p in prefixes)
     }
 
-    # 2) Nœuds filtrés, ordre préservé
+    # 2) Filtered nodes, preserved order
     nodes_kept = [n for n in snapshot.nodes if n.id in kept_ids]
 
-    # 3) Arêtes dont les deux extrémités sont gardées
+    # 3) Edges with two kept ends
     edges_kept = [
         e for e in snapshot.edges
         if e.from_id in kept_ids and e.to_id in kept_ids
     ]
 
-    # 4) Meta filtrée (ex: unresolvedIds)
+    # 4) Filtered Meta (ex: unresolvedIds)
     meta = dict(snapshot.meta)
     if "unresolvedIds" in meta:
         meta["unresolvedIds"] = [i for i in meta["unresolvedIds"] if i in kept_ids]
@@ -72,12 +70,12 @@ def _denormalize_node_metrics(
         out.append({
             "id": nid,
             "type": node.type,
-            "name": _extract_class_name(nid),   # ← corrige "jar)" et garde juste le nom de classe
+            "name": _extract_class_name(nid),
             "unresolved": (nid in unresolved_set),
             "metrics": {
                 "fanOut": fan_out[i],
                 "fanIn":  fan_in[i],
-                "instability": instability[i],
+                "stability": 1 - instability[i],
             },
         })
     return out
@@ -96,7 +94,7 @@ def build_graph(
     snapshot: GraphSnapshot = parse_dot_directory(dot_dir)
     snapshot.meta.setdefault("generatedAt", datetime.now(timezone.utc).isoformat())
 
-    # >>> FILTRE PAR PREFIXES (optionnel)
+    # >>> FILTER PER PREFIXES (optional)
     if include_prefixes:
         snapshot = _filter_snapshot_by_prefixes(snapshot, include_prefixes)
 

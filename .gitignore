@@ -8,6 +8,12 @@ Thumbs.db
 hs_err_pid*
 replay_pid*
 
+# --- Python / Build outputs ---
+
+**/__pycache__/
+__pycache__
+**.pyc
+
 # --- Java / Build outputs ---
 *.class
 target/

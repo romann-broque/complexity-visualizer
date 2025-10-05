@@ -4,5 +4,6 @@ version = "0.1.0"
 description = "Complexity Visualization of software dependencies"
 readme = "README.md"
 requires-python = ">=3.1"
+
 [tool.pyright]
 pythonVersion = "3.12"

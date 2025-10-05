@@ -7,7 +7,7 @@ def main() -> None:
     ap = argparse.ArgumentParser(description="Complexity Visualizer (jdeps DOT → graph.json/DSM)")
     ap.add_argument("--from", dest="from_dir", default="from/", help="DOT directory")
     ap.add_argument("--out", dest="out_graph", default="dist/graph.json", help="Output graph.json")
-    ap.add_argument("--dsm", dest="out_dsm", default=None, help="Output DSM json (optional)")
+    ap.add_argument("--dsm", dest="out_dsm", default="dist/dsm.json", help="Output DSM json (optional)")
     ap.add_argument(
         "--include-prefix",
         dest="include_prefixes",

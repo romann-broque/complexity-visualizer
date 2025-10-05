@@ -1,4 +1,3 @@
-# src/complexity_visualizer/dot_parser.py
 from __future__ import annotations
 import os, re
 from typing import Dict, List, Set, Tuple
@@ -32,7 +31,7 @@ def parse_dot_directory(dot_dir: str) -> GraphSnapshot:
     if not os.path.isdir(dot_dir):
         raise FileNotFoundError(f"DOT directory not found: {dot_dir}")
 
-    # On agrège les arêtes sur (from,to) et l’on garde uniquement les classes
+    # Merge edges (from, to) and only keep classes
     class_ids: Set[str] = set()
     unresolved_class_ids: Set[str] = set()
     edge_weights: Dict[Tuple[str, str], int] = {}
@@ -51,7 +50,7 @@ def parse_dot_directory(dot_dir: str) -> GraphSnapshot:
                 a_is_class   = _is_probable_java_class(can_a)
                 b_is_class   = _is_probable_java_class(can_b)
 
-                # On ne conserve que les relations entre classes (=> filtre les packages)
+                # Only keep relationships between classes (filter packages)
                 if not (a_is_class and b_is_class):
                     continue
 
@@ -71,6 +70,6 @@ def parse_dot_directory(dot_dir: str) -> GraphSnapshot:
         "language": "java",
         "source": dot_dir,
         "unresolvedIds": sorted(unresolved_class_ids),
-        "filtered": "packages-removed"  # trace utile pour déboguer
+        "filtered": "packages-removed"  # useful for debugging
     }
     return GraphSnapshot(nodes=node_objs, edges=edges, meta=meta)
