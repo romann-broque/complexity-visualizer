@@ -1,4 +1,4 @@
-"""Main graph building orchestration.
+"""Main graph building orchestration with enhanced metrics.
 
 This module coordinates the parsing, filtering, metrics computation,
 and output generation for dependency graphs.
@@ -12,6 +12,7 @@ from .models import GraphSnapshot
 from .dot_parser import DotFileParser
 from .graph_filter import GraphFilter
 from .metrics import MetricsCalculator
+from .enhanced_metrics import EnhancedMetrics
 from .node_formatter import NodeFormatter
 from .io_utils import FileWriter
 
@@ -25,21 +26,23 @@ class GraphBuilder:
             output_graph_path: str,
             output_dsm_path: Optional[str] = None,
             include_prefixes: Optional[List[str]] = None,
+            enhanced: bool = True,
     ) -> Dict[str, object]:
         """Parse DOT files, compute metrics, and write output files.
-        
+
         This is the main entry point for graph building. It:
         1. Parses all DOT files in the directory
         2. Optionally filters by package prefixes
-        3. Computes all metrics
+        3. Computes all metrics (basic + enhanced)
         4. Writes graph.json and optionally DSM.json
-        
+
         Args:
             dot_directory: Path to directory containing .dot files
             output_graph_path: Where to write graph.json
             output_dsm_path: Optional path for DSM.json output
             include_prefixes: Optional list of package prefixes to include
-            
+            enhanced: Whether to compute enhanced metrics (default: True)
+
         Returns:
             Dictionary with build statistics and output paths
         """
@@ -53,12 +56,19 @@ class GraphBuilder:
             "generatedAt",
             datetime.now(timezone.utc).isoformat()
         )
+
         # Apply prefix filter if specified
         if include_prefixes:
             snapshot = GraphFilter.filter_by_prefixes(snapshot, include_prefixes)
 
         # Compute metrics
-        metrics = MetricsCalculator.compute_metrics(snapshot)
+        base_metrics = MetricsCalculator.compute_metrics(snapshot)
+
+        # Compute enhanced metrics if requested
+        if enhanced:
+            metrics = EnhancedMetrics.compute_enhanced_metrics(snapshot, base_metrics)
+        else:
+            metrics = base_metrics
 
         # Build output payload
         graph_payload = GraphBuilder._build_graph_payload(snapshot, metrics)
@@ -76,6 +86,11 @@ class GraphBuilder:
             "edgeCount": metrics["edgeCount"],
             "graphPath": output_graph_path,
             "dsmPath": dsm_output_path,
+            "metrics": {
+                "difficultyScore": metrics.get("refactoring", {}).get("difficultyScore", 0),
+                "cycleCount": metrics.get("cycles", {}).get("cycleCount", 0),
+                "tangleScore": metrics.get("cycles", {}).get("tangleScore", 0),
+            }
         }
 
     @staticmethod
@@ -84,11 +99,11 @@ class GraphBuilder:
             metrics: Dict[str, object],
     ) -> Dict[str, object]:
         """Construct the complete graph.json payload.
-        
+
         Args:
             snapshot: The graph data
             metrics: Computed metrics
-            
+
         Returns:
             Dictionary ready for JSON serialization
         """
@@ -114,15 +129,17 @@ def build_graph(
         output_graph_path: str,
         output_dsm_path: Optional[str] = None,
         include_prefixes: Optional[List[str]] = None,
+        enhanced: bool = True,
 ) -> Dict[str, object]:
     """Build a dependency graph from DOT files.
-    
+
     Args:
         dot_directory: Path to directory containing .dot files
         output_graph_path: Where to write graph.json
         output_dsm_path: Optional path for DSM.json output
         include_prefixes: Optional list of package prefixes to include
-        
+        enhanced: Whether to compute enhanced metrics (default: True)
+
     Returns:
         Dictionary with build statistics and output paths
     """
@@ -131,4 +148,5 @@ def build_graph(
         output_graph_path,
         output_dsm_path,
         include_prefixes,
+        enhanced,
     )
