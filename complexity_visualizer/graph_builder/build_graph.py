@@ -1,8 +1,3 @@
-"""Main graph building orchestration with enhanced metrics.
-
-This module coordinates the parsing, filtering, metrics computation,
-and output generation for dependency graphs.
-"""
 from __future__ import annotations
 from dataclasses import asdict
 from datetime import datetime, timezone
@@ -18,7 +13,7 @@ from .io_utils import FileWriter
 
 
 class GraphBuilder:
-    """Orchestrates the building of dependency graphs from DOT files."""
+    """Orchestrates graph building from DOT files."""
 
     @staticmethod
     def build_graph(
@@ -28,23 +23,17 @@ class GraphBuilder:
             include_prefixes: Optional[List[str]] = None,
             enhanced: bool = True,
     ) -> Dict[str, object]:
-        """Parse DOT files, compute metrics, and write output files.
-
-        This is the main entry point for graph building. It:
-        1. Parses all DOT files in the directory
-        2. Optionally filters by package prefixes
-        3. Computes all metrics (basic + enhanced)
-        4. Writes graph.json and optionally DSM.json
+        """Parse DOT files, compute metrics, write graph.json.
 
         Args:
-            dot_directory: Path to directory containing .dot files
+            dot_directory: Path to .dot files
             output_graph_path: Where to write graph.json
-            output_dsm_path: Optional path for DSM.json output
-            include_prefixes: Optional list of package prefixes to include
-            enhanced: Whether to compute enhanced metrics (default: True)
+            output_dsm_path: Optional DSM.json output
+            include_prefixes: Optional package filters
+            enhanced: Compute enhanced metrics (default: True)
 
         Returns:
-            Dictionary with build statistics and output paths
+            Dict with nodeCount, edgeCount, paths, and key metrics
         """
         FileWriter.ensure_parent_directory(output_graph_path)
         if output_dsm_path:
@@ -57,20 +46,18 @@ class GraphBuilder:
             datetime.now(timezone.utc).isoformat()
         )
 
-        # Apply prefix filter if specified
+        # Apply prefix filter
         if include_prefixes:
             snapshot = GraphFilter.filter_by_prefixes(snapshot, include_prefixes)
 
         # Compute metrics
         base_metrics = MetricsCalculator.compute_metrics(snapshot)
-
-        # Compute enhanced metrics if requested
         if enhanced:
             metrics = EnhancedMetrics.compute_enhanced_metrics(snapshot, base_metrics)
         else:
             metrics = base_metrics
 
-        # Build output payload
+        # Build and write graph.json
         graph_payload = GraphBuilder._build_graph_payload(snapshot, metrics)
         FileWriter.write_json(output_graph_path, graph_payload)
 
@@ -98,18 +85,9 @@ class GraphBuilder:
             snapshot: GraphSnapshot,
             metrics: Dict[str, object],
     ) -> Dict[str, object]:
-        """Construct the complete graph.json payload.
-
-        Args:
-            snapshot: The graph data
-            metrics: Computed metrics
-
-        Returns:
-            Dictionary ready for JSON serialization
-        """
+        """Construct complete graph.json payload."""
         formatted_nodes = NodeFormatter.format_nodes_with_metrics(snapshot, metrics)
 
-        # Add node order to metrics for DSM correspondence
         metrics_with_order = {
             **metrics,
             "order": [node.id for node in snapshot.nodes],
@@ -123,7 +101,7 @@ class GraphBuilder:
         }
 
 
-# Convenience function for backward compatibility
+# Convenience function
 def build_graph(
         dot_directory: str,
         output_graph_path: str,
@@ -131,18 +109,7 @@ def build_graph(
         include_prefixes: Optional[List[str]] = None,
         enhanced: bool = True,
 ) -> Dict[str, object]:
-    """Build a dependency graph from DOT files.
-
-    Args:
-        dot_directory: Path to directory containing .dot files
-        output_graph_path: Where to write graph.json
-        output_dsm_path: Optional path for DSM.json output
-        include_prefixes: Optional list of package prefixes to include
-        enhanced: Whether to compute enhanced metrics (default: True)
-
-    Returns:
-        Dictionary with build statistics and output paths
-    """
+    """Build dependency graph from DOT files."""
     return GraphBuilder.build_graph(
         dot_directory,
         output_graph_path,

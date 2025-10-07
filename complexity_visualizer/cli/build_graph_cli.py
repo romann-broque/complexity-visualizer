@@ -1,24 +1,16 @@
 #!/usr/bin/env python3
-"""Command-line interface for the complexity visualizer.
-
-This script provides the main entry point for parsing jdeps DOT files
-and generating dependency graphs with metrics.
-"""
+"""CLI for building graph.json from DOT files."""
 from __future__ import annotations
 import argparse
 import sys
 
-from complexity_visualizer.build_graph import build_graph
+from complexity_visualizer.graph_builder import build_graph
 
 
-def create_argument_parser() -> argparse.ArgumentParser:
-    """Create and configure the argument parser.
-
-    Returns:
-        Configured ArgumentParser instance
-    """
+def create_parser() -> argparse.ArgumentParser:
+    """Create argument parser."""
     parser = argparse.ArgumentParser(
-        description="Complexity Visualizer - Convert jdeps DOT files to dependency graphs",
+        description="Build dependency graph from jdeps DOT files",
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog="""
 Examples:
@@ -36,8 +28,8 @@ Examples:
     parser.add_argument(
         "--from",
         dest="from_directory",
-        default="from/poseidon",
-        help="Directory containing .dot files (default: from/)",
+        required=True,
+        help="Directory containing .dot files",
     )
 
     parser.add_argument(
@@ -50,8 +42,8 @@ Examples:
     parser.add_argument(
         "--dsm",
         dest="output_dsm",
-        default="dist/dsm.json",
-        help="Output path for DSM matrix (default: dist/dsm.json)",
+        default=None,
+        help="Optional output path for DSM.json",
     )
 
     parser.add_argument(
@@ -60,23 +52,22 @@ Examples:
         action="append",
         default=[],
         metavar="PREFIX",
-        help=(
-            "Keep only nodes whose ID starts with this prefix. "
-            "Can be specified multiple times. "
-            "Example: --include-prefix com.myapp --include-prefix org.myapp"
-        ),
+        help="Keep only nodes starting with prefix (can specify multiple)",
+    )
+
+    parser.add_argument(
+        "--no-enhanced",
+        dest="enhanced",
+        action="store_false",
+        help="Disable enhanced metrics computation",
     )
 
     return parser
 
 
 def main() -> int:
-    """Main entry point for the CLI.
-
-    Returns:
-        Exit code (0 for success, non-zero for errors)
-    """
-    parser = create_argument_parser()
+    """Main CLI entry point."""
+    parser = create_parser()
     args = parser.parse_args()
 
     try:
@@ -84,10 +75,10 @@ def main() -> int:
             dot_directory=args.from_directory,
             output_graph_path=args.output_graph,
             output_dsm_path=args.output_dsm,
-            include_prefixes=args.include_prefixes if len(args.include_prefixes) > 0 else None,
+            include_prefixes=args.include_prefixes if args.include_prefixes else None,
+            enhanced=args.enhanced,
         )
 
-        # Print success message
         print(
             f"✅ Successfully processed {result['nodeCount']} nodes "
             f"and {result['edgeCount']} edges"
@@ -99,12 +90,12 @@ def main() -> int:
 
         return 0
 
-    except FileNotFoundError as error:
-        print(f"❌ Error: {error}", file=sys.stderr)
+    except FileNotFoundError as e:
+        print(f"❌ Error: {e}", file=sys.stderr)
         return 1
-    # except Exception as error:
-    #     print(f"❌ Unexpected error: {error}", file=sys.stderr)
-    #     return 2
+    except Exception as e:
+        print(f"❌ Unexpected error: {e}", file=sys.stderr)
+        return 2
 
 
 if __name__ == "__main__":
