@@ -1,4 +1,6 @@
 from __future__ import annotations
+
+import csv
 import json
 import os
 from typing import Any
@@ -19,3 +21,12 @@ class FileWriter:
         """Write data to JSON file with formatting."""
         with open(file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, indent=2, ensure_ascii=False)
+
+    @staticmethod
+    def write_csv(file_path: str, data: list[dict]) -> None:
+        """Write metrics data to CSV file for CodeCharta."""
+        FileWriter.ensure_parent_directory(file_path)
+        with open(file_path, "w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, fieldnames=["name", "fanIn", "fanOut"])
+            writer.writeheader()
+            writer.writerows(data)

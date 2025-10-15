@@ -1,7 +1,7 @@
 from __future__ import annotations
 from typing import Iterable, Set, Tuple
 
-from .models import GraphSnapshot
+from .models import Graph
 
 
 class GraphFilter:
@@ -9,9 +9,9 @@ class GraphFilter:
 
     @staticmethod
     def filter_by_prefixes(
-            snapshot: GraphSnapshot,
+            snapshot: Graph,
             include_prefixes: Iterable[str],
-    ) -> GraphSnapshot:
+    ) -> Graph:
         """Keep only nodes with IDs starting with given prefixes.
 
         Filters nodes and edges, updates metadata accordingly.
@@ -40,7 +40,7 @@ class GraphFilter:
                 if nid in kept_ids
             ]
 
-        return GraphSnapshot(
+        return Graph(
             nodes=filtered_nodes,
             edges=filtered_edges,
             meta=updated_meta,

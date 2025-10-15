@@ -15,8 +15,7 @@ class NodeFormatter:
         """Format nodes with computed metrics for output."""
         fan_out = metrics["fanOut"]
         fan_in = metrics["fanIn"]
-        instability = metrics["instability"]
-        unresolved_ids = set(snapshot.meta.get("unresolvedIds", []))
+        scc = metrics["scc"]
 
         formatted = []
         for idx, node in enumerate(snapshot.nodes):
@@ -24,11 +23,10 @@ class NodeFormatter:
                 "id": node.id,
                 "type": node.type,
                 "name": NodeFormatter._extract_simple_name(node.id),
-                "unresolved": node.id in unresolved_ids,
                 "metrics": {
                     "fanOut": fan_out[idx],
                     "fanIn": fan_in[idx],
-                    "stability": 1 - instability[idx],
+                    "scc": scc[idx] if idx < len(scc) else [],
                 },
             })
         return formatted

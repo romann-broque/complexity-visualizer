@@ -1,161 +1,131 @@
-"""Metrics computation for dependency graphs.
+"""Compute graph metrics: fan-in/out, SCCs."""
+from typing import Dict, List
 
-Calculates:
-- Fan-in/Fan-out
-- Instability (Ce / (Ce + Ca))
-- Strongly Connected Components (Tarjan's algorithm)
-"""
-from __future__ import annotations
-from typing import Dict, List, Sequence, Tuple, TypedDict
-
-from .models import GraphSnapshot
-
-AdjacencyList = List[List[int]]
-NodeIndex = Dict[str, int]
+from .models import Graph
 
 
-class MetricsReport(TypedDict):
-    """Comprehensive metrics for a dependency graph."""
-    nodeCount: int
-    edgeCount: int
-    fanOut: List[int]
-    fanIn: List[int]
-    instability: List[float]
-    scc: List[List[int]]
+def compute_metrics(graph: Graph) -> Dict:
+    """Calculate all metrics for the graph."""
+    if not graph.nodes:
+        raise ValueError("Empty graph")
+
+    n = len(graph.nodes)
+    idx = graph.node_index()
+
+    # Build adjacency list
+    adj = [[] for _ in range(n)]
+    for e in graph.edges:
+        if (s := idx.get(e.from_id)) is not None and (t := idx.get(e.to_id)) is not None:
+            adj[s].append(t)
+
+    fan_out, fan_in = _degrees(adj)
+    sccs = _tarjan_scc(adj)
+    change_cost = _change_cost(fan_in, fan_out, sccs)
+
+    return {
+        "nodeCount": n,
+        "edgeCount": len(graph.edges),
+        "fanOut": fan_out,
+        "fanIn": fan_in,
+        "scc": sccs,
+        "changeCost": change_cost
+    }
 
 
-class MetricsCalculator:
-    """Calculator for dependency graph metrics."""
+def _degrees(adj: List[List[int]]) -> tuple[List[int], List[int]]:
+    n = len(adj)
+    out_deg = [len(neighbors) for neighbors in adj]
+    in_deg = [0] * n
+    for neighbors in adj:
+        for v in neighbors:
+            in_deg[v] += 1
+    return out_deg, in_deg
 
-    @staticmethod
-    def compute_metrics(graph: GraphSnapshot) -> MetricsReport:
-        """Compute all metrics for a dependency graph."""
-        if not graph.nodes:
-            raise ValueError("Graph has no nodes")
 
-        node_index = graph.create_node_index()
-        node_count = len(graph.nodes)
+def _tarjan_scc(adj: List[List[int]]) -> List[List[int]]:
+    """Tarjan's algorithm for strongly connected components."""
+    n = len(adj)
+    index = 0
+    stack = []
+    on_stack = [False] * n
+    indices = [-1] * n
+    lowlink = [0] * n
+    sccs = []
 
-        adjacency = MetricsCalculator._build_adjacency_list(
-            node_count, graph, node_index
-        )
+    def visit(v: int):
+        nonlocal index
+        indices[v] = lowlink[v] = index
+        index += 1
+        stack.append(v)
+        on_stack[v] = True
 
-        fan_out, fan_in = MetricsCalculator._calculate_degrees(adjacency)
-        instability = MetricsCalculator._calculate_instability(fan_out, fan_in)
-        scc = MetricsCalculator._find_strongly_connected_components(adjacency)
+        for w in adj[v]:
+            if indices[w] == -1:
+                visit(w)
+                lowlink[v] = min(lowlink[v], lowlink[w])
+            elif on_stack[w]:
+                lowlink[v] = min(lowlink[v], indices[w])
 
-        return {
-            "nodeCount": node_count,
-            "edgeCount": len(graph.edges),
-            "fanOut": fan_out,
-            "fanIn": fan_in,
-            "instability": instability,
-            "scc": scc,
-        }
+        if lowlink[v] == indices[v]:
+            scc = []
+            while True:
+                w = stack.pop()
+                on_stack[w] = False
+                scc.append(w)
+                if w == v:
+                    break
+            sccs.append(scc)
 
-    @staticmethod
-    def build_dependency_structure_matrix(graph: GraphSnapshot) -> Dict[str, object]:
-        """Build DSM where M[i][j] = dependencies from i to j."""
-        if not graph.nodes:
-            raise ValueError("Graph has no nodes")
+    for v in range(n):
+        if indices[v] == -1:
+            visit(v)
 
-        node_index = graph.create_node_index()
-        n = len(graph.nodes)
-        matrix = [[0] * n for _ in range(n)]
+    return sccs
 
-        for edge in graph.edges:
-            src = node_index.get(edge.from_id)
-            tgt = node_index.get(edge.to_id)
-            if src is not None and tgt is not None:
-                matrix[src][tgt] += max(1, edge.weight)
 
-        return {
-            "order": [node.id for node in graph.nodes],
-            "matrix": matrix,
-        }
+def _change_cost(fan_in: List[int], fan_out: List[int], sccs: List[List[int]]) -> List[float]:
+    """
+    Calculate change cost: difficulty to test/refactor safely.
 
-    @staticmethod
-    def _build_adjacency_list(
-            node_count: int,
-            graph: GraphSnapshot,
-            node_index: NodeIndex,
-    ) -> AdjacencyList:
-        """Build adjacency list from edges."""
-        adj: AdjacencyList = [[] for _ in range(node_count)]
-        for edge in graph.edges:
-            src = node_index.get(edge.from_id)
-            tgt = node_index.get(edge.to_id)
-            if src is not None and tgt is not None:
-                adj[src].append(tgt)
-        return adj
+    Formula: changeCost = (fanOut² × fanIn) + cyclePenalty
 
-    @staticmethod
-    def _calculate_degrees(adj: AdjacencyList) -> Tuple[List[int], List[int]]:
-        """Calculate out-degree (fan-out) and in-degree (fan-in)."""
-        n = len(adj)
-        out_deg = [0] * n
-        in_deg = [0] * n
+    Why fanOut² (quadratic)?
+    - Testing complexity grows exponentially with dependencies
+    - Each dependency can interact with others (combinatorial explosion)
+    - Mocking/setup effort is non-linear
 
-        for node, neighbors in enumerate(adj):
-            out_deg[node] = len(neighbors)
-            for neighbor in neighbors:
-                in_deg[neighbor] += 1
+    Why fanOut × fanIn (not fanIn²)?
+    - High fanIn + low fanOut = stable component (interfaces, DTOs) → LOW cost ✅
+    - Low fanIn + high fanOut = god object / service locator → HIGH cost ❌
+    - Both high = central hub in bad architecture → VERY HIGH cost 🔥
 
-        return out_deg, in_deg
+    Cycle penalty: +100 per cycle member (breaks clean architecture)
 
-    @staticmethod
-    def _calculate_instability(
-            out_deg: Sequence[int],
-            in_deg: Sequence[int],
-    ) -> List[float]:
-        """Calculate instability = Ce / (Ce + Ca).
+    Examples:
+    - Interface (fanIn=20, fanOut=0): cost = 0 (green, stable)
+    - DTO (fanIn=15, fanOut=2): cost = 60 (green, simple)
+    - God Object (fanIn=5, fanOut=30): cost = 4500 (red, nightmare)
+    - Cyclic God Object: cost = 4600 (dark red, abandon hope)
+    """
+    n = len(fan_in)
 
-        Range: 0 (stable, only depended upon) to 1 (unstable, only depends).
-        """
-        result = []
-        for efferent, afferent in zip(out_deg, in_deg):
-            total = efferent + afferent
-            instability = efferent / total if total > 0 else 0.0
-            result.append(round(instability, 3))
-        return result
+    # Detect cycles
+    in_cycle = [False] * n
+    cycle_sizes = [0] * n
+    for scc in sccs:
+        if len(scc) > 1:
+            for node_idx in scc:
+                in_cycle[node_idx] = True
+                cycle_sizes[node_idx] = len(scc)
 
-    @staticmethod
-    def _find_strongly_connected_components(adj: AdjacencyList) -> List[List[int]]:
-        """Find SCCs using Tarjan's algorithm (circular dependencies)."""
-        n = len(adj)
-        index = 0
-        stack: List[int] = []
-        on_stack = [False] * n
-        indices = [-1] * n
-        lowlink = [0] * n
-        components: List[List[int]] = []
+    change_cost = []
+    for i in range(n):
+        # Core formula: dependencies are the real problem
+        coupling_cost = fan_out[i] * (fan_in[i] ** 2)
 
-        def strongconnect(v: int) -> None:
-            nonlocal index
-            indices[v] = lowlink[v] = index
-            index += 1
-            stack.append(v)
-            on_stack[v] = True
+        # Cycle penalty: breaks layered architecture
+        cycle_penalty = 100 * cycle_sizes[i] if in_cycle[i] else 0
 
-            for w in adj[v]:
-                if indices[w] == -1:
-                    strongconnect(w)
-                    lowlink[v] = min(lowlink[v], lowlink[w])
-                elif on_stack[w]:
-                    lowlink[v] = min(lowlink[v], indices[w])
+        change_cost.append(coupling_cost + cycle_penalty)
 
-            if lowlink[v] == indices[v]:
-                component: List[int] = []
-                while True:
-                    w = stack.pop()
-                    on_stack[w] = False
-                    component.append(w)
-                    if w == v:
-                        break
-                components.append(component)
-
-        for v in range(n):
-            if indices[v] == -1:
-                strongconnect(v)
-
-        return components
+    return change_cost
