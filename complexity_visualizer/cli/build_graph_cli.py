@@ -13,12 +13,15 @@ def main() -> int:
     parser.add_argument("--from", dest="dot_dir", required=True, help="Directory containing .dot files")
     parser.add_argument("--out", default="dist/graph.json", help="Output path (default: dist/graph.json)")
     parser.add_argument("--include-prefix", dest="prefixes", action="append", help="Filter by package prefix")
+    parser.add_argument("--source", dest="source_dir", help="Java source root (e.g., src/main/java) for complexity analysis")
 
     args = parser.parse_args()
 
     try:
-        result = build_graph(args.dot_dir, args.out, args.prefixes)
+        result = build_graph(args.dot_dir, args.out, args.prefixes, args.source_dir)
         print(f"✅ {result['nodeCount']} nodes, {result['edgeCount']} edges → {args.out}")
+        if args.source_dir:
+            print(f"   📊 Source code complexity analyzed")
         return 0
     except FileNotFoundError as e:
         print(f"❌ {e}", file=sys.stderr)

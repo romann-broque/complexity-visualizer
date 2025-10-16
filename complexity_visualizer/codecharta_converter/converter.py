@@ -41,7 +41,11 @@ def convert_to_codecharta(
         attrs = {
             "fanIn": metrics.get("fanIn", 0),
             "fanOut": metrics.get("fanOut", 0),
-            "changeCost": metrics.get("changeCost", 0)
+            "transitiveDeps": metrics.get("transitiveDeps", 0),
+            "complexity": metrics.get("complexity", 1),
+            "loc": metrics.get("loc", 0),
+            "methods": metrics.get("methods", 0),
+            "maintenanceBurden": metrics.get("maintenanceBurden", 0),
         }
 
         path = _add_node(root, fqn, attrs)
@@ -68,7 +72,11 @@ def convert_to_codecharta(
         "attributeTypes": {
             "fanIn": "absolute",
             "fanOut": "absolute",
-            "changeCost": "absolute"
+            "transitiveDeps": "absolute",
+            "complexity": "absolute",
+            "loc": "absolute",
+            "methods": "absolute",
+            "maintenanceBurden": "absolute",
         }
     }
 

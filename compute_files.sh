@@ -1,10 +1,10 @@
 #!/bin/bash
 
 #Poseidon
-
 python3 -m complexity_visualizer.cli.build_graph_cli \
            --from ./from/poseidon \
            --out ./dist/poseidon/poseidon_graph.json \
+           --source ../../POSeidonV2/poseidon-v2-back/src/main/java/ \
            --include-prefix com.totalenergies.poseidon2
 
 python3 -m complexity_visualizer.cli.convert_cli \
@@ -12,11 +12,12 @@ python3 -m complexity_visualizer.cli.convert_cli \
            --out dist/poseidon/poseidon_codecharta.json \
            --project poseidon
 
-#Asphaltor
+##Asphaltor
 
 python3 -m complexity_visualizer.cli.build_graph_cli \
            --from ./from/asphaltor \
            --out ./dist/asphaltor/asphaltor_graph.json \
+           --source ../asphaltor-backend/src/main/java/ \
            --include-prefix com.totalenergies.asphaltor
 
 python3 -m complexity_visualizer.cli.convert_cli \
@@ -24,11 +25,12 @@ python3 -m complexity_visualizer.cli.convert_cli \
            --out dist/asphaltor/asphaltor_codecharta.json \
            --project asphaltor
 
-#MyCfr
+##MyCfr
 
 python3 -m complexity_visualizer.cli.build_graph_cli \
            --from ./from/mycfr \
            --out ./dist/mycfr/mycfr_graph.json \
+           --source ../mycfr-bff/src/main/java/ \
            --include-prefix com.totalenergies.mycfr.bff
 
 python3 -m complexity_visualizer.cli.convert_cli \

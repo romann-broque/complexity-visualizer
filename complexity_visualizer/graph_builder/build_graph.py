@@ -12,9 +12,19 @@ from .models import Graph
 def build_graph(
         dot_dir: str,
         output_path: str,
-        prefixes: Optional[List[str]] = None
+        prefixes: Optional[List[str]] = None,
+        source_dir: Optional[str] = None
 ) -> Dict:
-    """Parse DOT files, compute metrics, write graph.json."""
+    """
+    Parse DOT files, compute metrics, write graph.json.
+
+    Args:
+        dot_dir: Directory with .dot files
+        output_path: Where to write graph.json
+        prefixes: Optional package filters
+        source_dir: Optional Java source root (e.g., 'src/main/java')
+                   If provided, analyzes code complexity
+    """
     Path(output_path).parent.mkdir(parents=True, exist_ok=True)
 
     graph = parse_dot_directory(dot_dir)
@@ -22,8 +32,17 @@ def build_graph(
     if prefixes:
         graph = _filter_by_prefix(graph, prefixes)
 
-    metrics = compute_metrics(graph)
+    # Analyze source code if available
+    source_metrics = None
+    if source_dir:
+        from .java_analyzer import analyze_source_directory
+        class_fqns = [node.id for node in graph.nodes]
+        source_metrics = analyze_source_directory(source_dir, class_fqns)
+
+    metrics = compute_metrics(graph, source_metrics)
     graph.meta["generatedAt"] = datetime.now(timezone.utc).isoformat()
+    if source_dir:
+        graph.meta["sourceAnalyzed"] = True
 
     # Build output
     payload = {
@@ -61,7 +80,11 @@ def _format_nodes(graph: Graph, metrics: Dict) -> List[Dict]:
             "metrics": {
                 "fanIn": metrics["fanIn"][i],
                 "fanOut": metrics["fanOut"][i],
-                "changeCost": metrics["changeCost"][i]
+                "transitiveDeps": metrics["transitiveDeps"][i],
+                "complexity": metrics["complexity"][i],
+                "loc": metrics["loc"][i],
+                "methods": metrics["methods"][i],
+                "maintenanceBurden": metrics["maintenanceBurden"][i],
             }
         })
     return nodes
