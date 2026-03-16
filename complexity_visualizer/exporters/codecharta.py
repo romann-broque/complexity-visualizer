@@ -45,7 +45,7 @@ def convert_to_codecharta(
             "complexity": metrics.get("complexity", 1),
             "loc": metrics.get("loc", 0),
             "methods": metrics.get("methods", 0),
-            "maintenanceBurden": metrics.get("maintenanceBurden", 0),
+            "maintenanceBurden": metrics.get("maintenanceBurden", 0)
         }
 
         path = _add_node(root, fqn, attrs)
@@ -76,7 +76,7 @@ def convert_to_codecharta(
             "complexity": "absolute",
             "loc": "absolute",
             "methods": "absolute",
-            "maintenanceBurden": "absolute",
+            "maintenanceBurden": "absolute"
         }
     }
 
