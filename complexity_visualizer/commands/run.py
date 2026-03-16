@@ -49,12 +49,22 @@ def cmd_run(args) -> int:
     print(f"🚀 Running full analysis pipeline: {project_path.name}")
     print("=" * 60)
 
-    # Determine output directory
-    output_dir = Path(args.output).resolve() if args.output else project_path / "dist"
-    output_dir.mkdir(parents=True, exist_ok=True)
-
     # Determine project name
     project_name = args.project if args.project else project_path.name
+
+    # Determine output directory (centralized structure with project subdirectory)
+    if args.output:
+        # If user specifies --output, use it directly (no subdirectory)
+        output_dir = Path(args.output).resolve()
+    else:
+        # Default: dist/<project-name>/
+        output_dir = Path.cwd() / "dist" / project_name
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    # Create subdirectories in output
+    dots_dir = output_dir / "dots"
+    dots_dir.mkdir(exist_ok=True)
 
     # Step 1: Generate .dot files (unless skipped)
     dot_dir = None
@@ -62,8 +72,11 @@ def cmd_run(args) -> int:
         print("\n📍 Step 1/4: Generate .dot files")
         print("-" * 60)
 
-        # Check if .dot files already exist
+        # Check if .dot files already exist (in output dir or old locations)
         existing_dots = find_dot_files(project_path)
+        if not existing_dots and dots_dir.exists() and list(dots_dir.glob("*.dot")):
+            existing_dots = dots_dir
+
         if existing_dots:
             print(f"   Found existing .dot files: {existing_dots}")
             use_existing = input("   Use existing .dot files? [Y/n]: ").lower()
@@ -74,12 +87,10 @@ def cmd_run(args) -> int:
                 dot_dir = None
 
         if not dot_dir:
-            # Generate new .dot files
-            dot_output = project_path / "from" / project_name
-
+            # Generate new .dot files in centralized location
             generate_args = Namespace(
                 path=str(project_path),
-                output=str(dot_output),
+                output=str(dots_dir),
                 classes=None,  # Auto-detect
                 include_prefix=args.include_prefix,
             )
@@ -89,7 +100,7 @@ def cmd_run(args) -> int:
                 print("❌ Failed at step 1: generate-dots", file=sys.stderr)
                 return result
 
-            dot_dir = dot_output
+            dot_dir = dots_dir
     else:
         print("\n📍 Step 1/4: Generate .dot files (SKIPPED)")
         print("-" * 60)
@@ -160,9 +171,9 @@ def cmd_run(args) -> int:
     print("\n" + "=" * 60)
     print("✅ Pipeline completed successfully!")
     print("=" * 60)
-    print(f"\n📁 Generated files:")
-    print(f"   .dot files: {dot_dir}")
-    print(f"   Metrics:    {metrics_file}")
-    print(f"   CodeCharta: {cc_file}")
+    print(f"\n📁 Output directory: {output_dir}")
+    print(f"   ├── dots/            (.dot dependency files)")
+    print(f"   ├── metrics.json     (intermediate metrics)")
+    print(f"   └── codecharta.cc.json  (final visualization)")
 
     return 0

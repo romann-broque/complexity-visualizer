@@ -113,7 +113,9 @@ def main():
     run_parser.add_argument(
         "--source", "-s", help="Source code directory (auto-detected if not specified)"
     )
-    run_parser.add_argument("--output", "-o", help="Output directory (default: ./dist)")
+    run_parser.add_argument(
+        "--output", "-o", help="Output directory (default: ./dist/<project-name>)"
+    )
     run_parser.add_argument(
         "--include-prefix", action="append", help="Filter packages by prefix"
     )

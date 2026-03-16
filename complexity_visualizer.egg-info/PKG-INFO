@@ -16,8 +16,9 @@ Requires-Dist: ruff; extra == "dev"
 Analyze software complexity and visualize with CodeCharta.
 
 **Major improvements in v2:**
-- 🔄 Simplified architecture with modular design
-- 🎯 Unified CLI with subcommands
+- 🎯 Clear pipeline commands: `generate-dots`, `build-graph`, `convert`, `visualize`, `run`
+- 🚀 All-in-one `run` command for simplicity
+- 🔄 Simplified architecture with modular commands
 - 📊 Flexible intermediate JSON format
 - 🔍 Auto-detection of Maven/Gradle projects
 - 🐛 Critical bugs fixed
@@ -68,6 +69,9 @@ This automatically:
 
 **Common options:**
 ```bash
+# Specify custom output directory (default: ./dist)
+complexity-viz run ./my-project --output ./analysis-results
+
 # Filter specific packages
 complexity-viz run ./my-project --include-prefix com.example
 
@@ -81,30 +85,47 @@ complexity-viz run ./my-project --skip-dots
 complexity-viz run ./my-project --no-open
 ```
 
+**Output Structure:**
+
+All generated files are organized in a single directory (default: `./dist`):
+
+```
+dist/
+├── dots/                   # .dot dependency files
+├── metrics.json           # Intermediate metrics
+└── codecharta.cc.json     # Final visualization file
+```
+
+You can specify a custom output directory with `--output`:
+```bash
+complexity-viz run ./my-project --output ./my-analysis
+```
+
 #### Option 2: Step-by-Step Pipeline (Advanced)
 
 For more control, use individual commands:
 
 ```bash
 # Step 1: Generate .dot files using jdeps
-complexity-viz generate-dots ./my-project
+complexity-viz generate-dots ./my-project --output ./analysis/dots
 
 # Step 2: Build graph and compute metrics
-complexity-viz build-graph ./from/my-project \
-  --source ./my-project/src/main/java
+complexity-viz build-graph ./analysis/dots \
+  --source ./my-project/src/main/java \
+  --output ./analysis
 
 # Step 3: Convert to CodeCharta format
-complexity-viz convert ./dist/metrics.json
+complexity-viz convert ./analysis/metrics.json
 
 # Step 4: Open visualization
-complexity-viz visualize ./dist/codecharta.cc.json
+complexity-viz visualize ./analysis/codecharta.cc.json
 ```
 
 **Why use step-by-step?**
-- Debug specific steps
+- Full control over each output directory
+- Debug specific steps independently
 - Regenerate only what changed
-- Customize each step independently
-- CI/CD integration
+- CI/CD integration with custom paths
 
 #### Command Reference
 
@@ -158,14 +179,13 @@ The generated `.cc.json` file can be visualized in **CodeCharta**, an interactiv
 
 #### Option 2: Quick Open with CLI
 
-Use the `--open` flag to automatically open CodeCharta:
+The `visualize` command automatically opens CodeCharta:
 
 ```bash
-complexity-viz analyze ./my-project --open
+complexity-viz visualize ./dist/codecharta.cc.json
 ```
 
 This will:
-- Generate the visualization file
 - Display instructions
 - Automatically open your browser (macOS/Linux/Windows)
 - Show you where to drag & drop the file
@@ -255,7 +275,13 @@ CodeCharta uses a **city metaphor** to represent your codebase:
 
 ```
 complexity_visualizer/
-├── analyzers/          # Language-specific analyzers
+├── commands/          # CLI commands (one per file)
+│   ├── generate_dots.py  # Step 1: Generate .dot files
+│   ├── build_graph.py    # Step 2: Build graph & metrics
+│   ├── convert.py        # Step 3: Convert to CodeCharta
+│   ├── visualize.py      # Step 4: Open visualization
+│   └── run.py            # All-in-one pipeline
+├── analyzers/         # Language-specific analyzers
 │   ├── base.py        # Abstract interface
 │   └── java.py        # Java analyzer
 ├── core/              # Core logic
@@ -267,8 +293,10 @@ complexity_visualizer/
 │   ├── intermediate.py  # Flexible JSON format
 │   └── codecharta.py    # CodeCharta converter
 ├── utils/             # Utilities
-│   └── auto_detect.py   # Project detection
-└── cli.py             # Unified CLI
+│   ├── auto_detect.py   # Project detection
+│   ├── jdeps_runner.py  # jdeps execution
+│   └── browser_opener.py
+└── cli.py             # CLI entry point
 ```
 
 ### Formats
@@ -312,10 +340,15 @@ mvn compile
 cd /path/to/complexity-visualizer
 source .venv/bin/activate
 complexity-viz run ../my-java-project \
+  --output ./results \
   --source ../my-java-project/src/main/java \
   --include-prefix com.mycompany
 
 # Done! Browser opens with 3D visualization
+# All files are in ./results/:
+#   ├── dots/                  (.dot files)
+#   ├── metrics.json          (metrics)
+#   └── codecharta.cc.json    (visualization)
 ```
 
 ### Step-by-Step Example
@@ -328,19 +361,20 @@ mvn compile
 # 2. Generate .dot files
 cd /path/to/complexity-visualizer
 source .venv/bin/activate
-complexity-viz generate-dots ../my-java-project
+complexity-viz generate-dots ../my-java-project --output ./analysis/dots
 
 # 3. Build graph and compute metrics
-complexity-viz build-graph ./from/my-java-project \
+complexity-viz build-graph ./analysis/dots \
   --source ../my-java-project/src/main/java \
   --include-prefix com.mycompany \
+  --output ./analysis \
   --project "My Project"
 
 # 4. Convert to CodeCharta
-complexity-viz convert ./dist/metrics.json --project "My Project"
+complexity-viz convert ./analysis/metrics.json --project "My Project"
 
 # 5. Visualize
-complexity-viz visualize ./dist/codecharta.cc.json
+complexity-viz visualize ./analysis/codecharta.cc.json
 ```
 
 ### Working with Existing .dot Files
@@ -348,11 +382,11 @@ complexity-viz visualize ./dist/codecharta.cc.json
 If you already have .dot files:
 
 ```bash
-# Skip .dot generation
-complexity-viz run ./my-project --skip-dots
+# Skip .dot generation and use existing files
+complexity-viz run ./path/to/dot-files --skip-dots --output ./results
 
 # Or use step-by-step starting from step 2
-complexity-viz build-graph ./from/my-project --source ./src
+complexity-viz build-graph ./path/to/dots --source ./src --output ./analysis
 ```
 
 ## Troubleshooting
@@ -401,69 +435,3 @@ jdeps -dotoutput ./from/myproject build/classes/**/*.class
 pip install -e ".[dev]"
 pytest tests/
 ```
-
-### Project Status
-
-**✅ Completed:**
-- Phase 1: Critical bug fixes & code cleanup
-- Phase 2: Modular architecture restructuring
-- Phase 3: Intermediate JSON format
-- Phase 4: Auto-detection & unified CLI
-
-**🚧 Future (v2.1+):**
-- Multi-language support (Python, TypeScript)
-- HTML/CSV exporters
-- CodeCharta auto-installer
-- Batch processing with config files
-- Test suite
-
-## Changes from v1 to v2
-
-### Bugs Fixed
-- ✅ Fixed `_maintenance_burden()` undefined function error
-- ✅ Removed 168 lines of dead code
-- ✅ Fixed duplicate imports
-- ✅ Corrected Python version requirement (3.1 → 3.9)
-
-### Improvements
-- 🎯 Single unified CLI (`complexity-viz` instead of multiple scripts)
-- 📦 Zero external dependencies
-- 🔍 Auto-detection of Maven/Gradle projects
-- 📊 Rich intermediate format with aggregates
-- 🏗️ Clean modular architecture
-- 📝 Comprehensive documentation
-
-### Backward Compatibility
-- ✅ Old CLI commands still work
-- ✅ Same graph.json format output
-- ✅ Existing scripts unchanged
-
-## Troubleshooting
-
-**"jdeps not found"**
-- Install JDK ≥ 11 (not just JRE)
-- Check: `jdeps --version`
-
-**"No .dot files found"**
-- Compile your project first: `mvn compile` or `gradle compileJava`
-- Generate .dot files manually with jdeps
-- Or specify `--dot <directory>` explicitly
-
-**"Module not found" errors**
-- Reinstall: `pip install -e .`
-- Check Python version: `python --version` (must be ≥ 3.9)
-
-## Contributing
-
-Contributions welcome! This v2 refactoring establishes a clean foundation for:
-- Adding new language analyzers
-- Creating custom exporters
-- Implementing advanced pattern detection
-
-## License
-
-MIT
-
----
-
-**Made with ❤️ for better code quality**

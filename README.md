@@ -56,6 +56,9 @@ This automatically:
 
 **Common options:**
 ```bash
+# Specify custom output directory (default: ./dist/<project-name>)
+complexity-viz run ./my-project --output ./analysis-results
+
 # Filter specific packages
 complexity-viz run ./my-project --include-prefix com.example
 
@@ -69,30 +72,62 @@ complexity-viz run ./my-project --skip-dots
 complexity-viz run ./my-project --no-open
 ```
 
+**Output Structure:**
+
+By default, files are organized in `./dist/<project-name>/`:
+
+```
+dist/
+└── my-project/              # Project-specific subdirectory
+    ├── dots/                # .dot dependency files
+    ├── metrics.json         # Intermediate metrics
+    └── codecharta.cc.json   # Final visualization file
+```
+
+This allows analyzing multiple projects without conflicts:
+```
+dist/
+├── project-a/
+│   ├── dots/
+│   ├── metrics.json
+│   └── codecharta.cc.json
+└── project-b/
+    ├── dots/
+    ├── metrics.json
+    └── codecharta.cc.json
+```
+
+You can specify a custom output directory with `--output` (no subdirectory added):
+```bash
+complexity-viz run ./my-project --output ./my-analysis
+# Output: ./my-analysis/dots/, ./my-analysis/metrics.json, etc.
+```
+
 #### Option 2: Step-by-Step Pipeline (Advanced)
 
 For more control, use individual commands:
 
 ```bash
 # Step 1: Generate .dot files using jdeps
-complexity-viz generate-dots ./my-project
+complexity-viz generate-dots ./my-project --output ./analysis/dots
 
 # Step 2: Build graph and compute metrics
-complexity-viz build-graph ./from/my-project \
-  --source ./my-project/src/main/java
+complexity-viz build-graph ./analysis/dots \
+  --source ./my-project/src/main/java \
+  --output ./analysis
 
 # Step 3: Convert to CodeCharta format
-complexity-viz convert ./dist/metrics.json
+complexity-viz convert ./analysis/metrics.json
 
 # Step 4: Open visualization
-complexity-viz visualize ./dist/codecharta.cc.json
+complexity-viz visualize ./analysis/codecharta.cc.json
 ```
 
 **Why use step-by-step?**
-- Debug specific steps
+- Full control over each output directory
+- Debug specific steps independently
 - Regenerate only what changed
-- Customize each step independently
-- CI/CD integration
+- CI/CD integration with custom paths
 
 #### Command Reference
 
@@ -311,6 +346,13 @@ complexity-viz run ../my-java-project \
   --include-prefix com.mycompany
 
 # Done! Browser opens with 3D visualization
+# Default output: ./dist/my-java-project/
+#   ├── dots/                  (.dot files)
+#   ├── metrics.json          (metrics)
+#   └── codecharta.cc.json    (visualization)
+
+# Or specify custom output:
+complexity-viz run ../my-java-project --output ./custom-results
 ```
 
 ### Step-by-Step Example
@@ -323,19 +365,20 @@ mvn compile
 # 2. Generate .dot files
 cd /path/to/complexity-visualizer
 source .venv/bin/activate
-complexity-viz generate-dots ../my-java-project
+complexity-viz generate-dots ../my-java-project --output ./analysis/dots
 
 # 3. Build graph and compute metrics
-complexity-viz build-graph ./from/my-java-project \
+complexity-viz build-graph ./analysis/dots \
   --source ../my-java-project/src/main/java \
   --include-prefix com.mycompany \
+  --output ./analysis \
   --project "My Project"
 
 # 4. Convert to CodeCharta
-complexity-viz convert ./dist/metrics.json --project "My Project"
+complexity-viz convert ./analysis/metrics.json --project "My Project"
 
 # 5. Visualize
-complexity-viz visualize ./dist/codecharta.cc.json
+complexity-viz visualize ./analysis/codecharta.cc.json
 ```
 
 ### Working with Existing .dot Files
@@ -343,11 +386,11 @@ complexity-viz visualize ./dist/codecharta.cc.json
 If you already have .dot files:
 
 ```bash
-# Skip .dot generation
-complexity-viz run ./my-project --skip-dots
+# Skip .dot generation and use existing files
+complexity-viz run ./path/to/dot-files --skip-dots --output ./results
 
 # Or use step-by-step starting from step 2
-complexity-viz build-graph ./from/my-project --source ./src
+complexity-viz build-graph ./path/to/dots --source ./src --output ./analysis
 ```
 
 ## Troubleshooting
