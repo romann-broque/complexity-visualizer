@@ -25,6 +25,7 @@ def cmd_build_graph(args) -> int:
             - output: Output directory
             - include_prefix: Package prefixes to filter
             - project: Project name
+            - metrics_filename: Custom metrics filename (optional, default: "metrics.json")
 
     Returns:
         Exit code (0 = success, 1 = error)
@@ -94,8 +95,11 @@ def cmd_build_graph(args) -> int:
     if args.project:
         graph.meta["projectName"] = args.project
 
-    # Export to intermediate format (metrics.json)
-    metrics_path = output_dir / "metrics.json"
+    # Determine metrics filename
+    metrics_filename = getattr(args, "metrics_filename", None) or "metrics.json"
+
+    # Export to intermediate format
+    metrics_path = output_dir / metrics_filename
     print(f"💾 Saving metrics: {metrics_path}")
     try:
         export_intermediate(graph, metrics, str(metrics_path))

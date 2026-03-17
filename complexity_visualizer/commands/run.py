@@ -118,12 +118,15 @@ def cmd_run(args) -> int:
     print("\n📍 Step 2/4: Build graph and compute metrics")
     print("-" * 60)
 
+    metrics_filename = f"{project_name}.metrics.json"
+
     build_args = Namespace(
         dot_dir=str(dot_dir),
         source=args.source,
         output=str(output_dir),
         include_prefix=args.include_prefix,
         project=project_name,
+        metrics_filename=metrics_filename,
     )
 
     result = cmd_build_graph(build_args)
@@ -131,15 +134,17 @@ def cmd_run(args) -> int:
         print("❌ Failed at step 2: build-graph", file=sys.stderr)
         return result
 
-    metrics_file = output_dir / "metrics.json"
+    metrics_file = output_dir / metrics_filename
 
     # Step 3: Convert to CodeCharta format
     print("\n📍 Step 3/4: Convert to CodeCharta format")
     print("-" * 60)
 
+    cc_filename = f"{project_name}.codecharta.cc.json"
+
     convert_args = Namespace(
         input=str(metrics_file),
-        output=str(output_dir / "codecharta.cc.json"),
+        output=str(output_dir / cc_filename),
         project=project_name,
     )
 
@@ -148,7 +153,7 @@ def cmd_run(args) -> int:
         print("❌ Failed at step 3: convert", file=sys.stderr)
         return result
 
-    cc_file = output_dir / "codecharta.cc.json"
+    cc_file = output_dir / cc_filename
 
     # Step 4: Visualize (unless disabled)
     if not args.no_open:
@@ -172,8 +177,8 @@ def cmd_run(args) -> int:
     print("✅ Pipeline completed successfully!")
     print("=" * 60)
     print(f"\n📁 Output directory: {output_dir}")
-    print(f"   ├── dots/            (.dot dependency files)")
-    print(f"   ├── metrics.json     (intermediate metrics)")
-    print(f"   └── codecharta.cc.json  (final visualization)")
+    print(f"   ├── dots/                       (.dot dependency files)")
+    print(f"   ├── {metrics_filename:28} (intermediate metrics)")
+    print(f"   └── {cc_filename:28} (final visualization)")
 
     return 0

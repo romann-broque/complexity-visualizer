@@ -69,7 +69,7 @@ This automatically:
 
 **Common options:**
 ```bash
-# Specify custom output directory (default: ./dist)
+# Specify custom output directory (default: ./dist/<project-name>)
 complexity-viz run ./my-project --output ./analysis-results
 
 # Filter specific packages
@@ -87,18 +87,33 @@ complexity-viz run ./my-project --no-open
 
 **Output Structure:**
 
-All generated files are organized in a single directory (default: `./dist`):
+By default, files are organized in `./dist/<project-name>/`:
 
 ```
 dist/
-├── dots/                   # .dot dependency files
-├── metrics.json           # Intermediate metrics
-└── codecharta.cc.json     # Final visualization file
+└── my-project/              # Project-specific subdirectory
+    ├── dots/                # .dot dependency files
+    ├── metrics.json         # Intermediate metrics
+    └── codecharta.cc.json   # Final visualization file
 ```
 
-You can specify a custom output directory with `--output`:
+This allows analyzing multiple projects without conflicts:
+```
+dist/
+├── project-a/
+│   ├── dots/
+│   ├── metrics.json
+│   └── codecharta.cc.json
+└── project-b/
+    ├── dots/
+    ├── metrics.json
+    └── codecharta.cc.json
+```
+
+You can specify a custom output directory with `--output` (no subdirectory added):
 ```bash
 complexity-viz run ./my-project --output ./my-analysis
+# Output: ./my-analysis/dots/, ./my-analysis/metrics.json, etc.
 ```
 
 #### Option 2: Step-by-Step Pipeline (Advanced)
@@ -340,15 +355,17 @@ mvn compile
 cd /path/to/complexity-visualizer
 source .venv/bin/activate
 complexity-viz run ../my-java-project \
-  --output ./results \
   --source ../my-java-project/src/main/java \
   --include-prefix com.mycompany
 
 # Done! Browser opens with 3D visualization
-# All files are in ./results/:
+# Default output: ./dist/my-java-project/
 #   ├── dots/                  (.dot files)
 #   ├── metrics.json          (metrics)
 #   └── codecharta.cc.json    (visualization)
+
+# Or specify custom output:
+complexity-viz run ../my-java-project --output ./custom-results
 ```
 
 ### Step-by-Step Example

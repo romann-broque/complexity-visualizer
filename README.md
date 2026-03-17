@@ -78,10 +78,10 @@ By default, files are organized in `./dist/<project-name>/`:
 
 ```
 dist/
-└── my-project/              # Project-specific subdirectory
-    ├── dots/                # .dot dependency files
-    ├── metrics.json         # Intermediate metrics
-    └── codecharta.cc.json   # Final visualization file
+└── my-project/                      # Project-specific subdirectory
+    ├── dots/                        # .dot dependency files
+    ├── my-project.metrics.json      # Intermediate metrics
+    └── my-project.codecharta.cc.json # Final visualization file
 ```
 
 This allows analyzing multiple projects without conflicts:
@@ -89,18 +89,18 @@ This allows analyzing multiple projects without conflicts:
 dist/
 ├── project-a/
 │   ├── dots/
-│   ├── metrics.json
-│   └── codecharta.cc.json
+│   ├── project-a.metrics.json
+│   └── project-a.codecharta.cc.json
 └── project-b/
     ├── dots/
-    ├── metrics.json
-    └── codecharta.cc.json
+    ├── project-b.metrics.json
+    └── project-b.codecharta.cc.json
 ```
 
 You can specify a custom output directory with `--output` (no subdirectory added):
 ```bash
 complexity-viz run ./my-project --output ./my-analysis
-# Output: ./my-analysis/dots/, ./my-analysis/metrics.json, etc.
+# Output: ./my-analysis/dots/, ./my-analysis/my-project.metrics.json, etc.
 ```
 
 #### Option 2: Step-by-Step Pipeline (Advanced)
@@ -347,9 +347,11 @@ complexity-viz run ../my-java-project \
 
 # Done! Browser opens with 3D visualization
 # Default output: ./dist/my-java-project/
-#   ├── dots/                  (.dot files)
-#   ├── metrics.json          (metrics)
-#   └── codecharta.cc.json    (visualization)
+# Done! Browser opens with 3D visualization
+# Default output: ./dist/my-java-project/
+#   ├── dots/
+#   ├── my-java-project.metrics.json
+#   └── my-java-project.codecharta.cc.json
 
 # Or specify custom output:
 complexity-viz run ../my-java-project --output ./custom-results
@@ -375,10 +377,10 @@ complexity-viz build-graph ./analysis/dots \
   --project "My Project"
 
 # 4. Convert to CodeCharta
-complexity-viz convert ./analysis/metrics.json --project "My Project"
+complexity-viz convert ./analysis/My\ Project.metrics.json --project "My Project"
 
 # 5. Visualize
-complexity-viz visualize ./analysis/codecharta.cc.json
+complexity-viz visualize ./analysis/My\ Project.codecharta.cc.json
 ```
 
 ### Working with Existing .dot Files
