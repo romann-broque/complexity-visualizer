@@ -45,9 +45,10 @@ def cmd_build_graph(args) -> int:
 
     print(f"📊 Building dependency graph from {len(dot_files)} .dot files...")
 
-    # Parse .dot files
+    # Parse .dot files with filtering
+    include_prefix = getattr(args, "include_prefix", None)
     try:
-        graph = parse_dot_directory(str(dot_dir))
+        graph = parse_dot_directory(str(dot_dir), include_prefixes=include_prefix)
     except Exception as e:
         print(f"❌ Error parsing .dot files: {e}", file=sys.stderr)
         import traceback
