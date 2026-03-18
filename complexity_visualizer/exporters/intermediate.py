@@ -158,12 +158,18 @@ def _build_aggregates(
         cycleCount=sum(1 for scc in metrics["scc"] if len(scc) > 1),
     )
 
-    # Cycles
+    # Cycles - filter those containing only packages
     cycles = []
     for i, scc in enumerate(metrics["scc"]):
         if len(scc) > 1:  # Only actual cycles
             node_ids = [graph.nodes[idx].id for idx in scc]
-            cycles.append(Cycle(id=i, nodes=node_ids, size=len(scc)))
+
+            # Check if cycle contains at least one class (not only packages)
+            cycle_nodes = [n for n in nodes if n.id in node_ids]
+            has_class = any(n.type == "class" for n in cycle_nodes)
+
+            if has_class:  # Only include cycles with actual classes
+                cycles.append(Cycle(id=i, nodes=node_ids, size=len(scc)))
 
     # Hotspots
     hotspots = _identify_hotspots(nodes)
@@ -173,10 +179,18 @@ def _build_aggregates(
 
 def _identify_hotspots(nodes: List[NodeWithMetrics], top_n: int = 10) -> Hotspots:
     """Identify problematic classes (hotspots)."""
+
+    # Filter only actual classes (not packages)
+    class_nodes = [n for n in nodes if n.type == "class"]
+
     # Sort by different criteria
-    by_complexity = sorted(nodes, key=lambda n: n.metrics.complexity, reverse=True)
-    by_fan_out = sorted(nodes, key=lambda n: n.metrics.fanOut, reverse=True)
-    by_burden = sorted(nodes, key=lambda n: n.metrics.maintenanceBurden, reverse=True)
+    by_complexity = sorted(
+        class_nodes, key=lambda n: n.metrics.complexity, reverse=True
+    )
+    by_fan_out = sorted(class_nodes, key=lambda n: n.metrics.fanOut, reverse=True)
+    by_burden = sorted(
+        class_nodes, key=lambda n: n.metrics.maintenanceBurden, reverse=True
+    )
 
     return Hotspots(
         highComplexity=[

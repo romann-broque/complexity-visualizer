@@ -27,13 +27,29 @@ def convert_to_codecharta(
     data = json.loads(Path(input_path).read_text(encoding="utf-8"))
 
     if not project_name:
-        project_name = data.get("meta", {}).get("project", "project")
+        project_name = (
+            data.get("meta", {}).get("projectName")
+            or data.get("meta", {}).get("project")
+            or "project"
+        )
+
+    # Ensure project_name is not None (type narrowing)
+    assert project_name is not None
+
+    # Filter nodes - only keep actual classes (not packages)
+    all_nodes = data["nodes"]
+    class_nodes = [n for n in all_nodes if n.get("type") != "package"]
+    package_nodes = [n for n in all_nodes if n.get("type") == "package"]
+
+    print(f"   Converting: {len(class_nodes)} classes")
+    if package_nodes:
+        print(f"   Excluding: {len(package_nodes)} packages")
 
     root = CCNode(name=project_name, type="Folder")
     paths = {}
 
-    # Build tree
-    for node in data["nodes"]:
+    # Build tree (only from classes)
+    for node in class_nodes:
         fqn = node["id"]
         metrics = node.get("metrics", {})
 
@@ -54,9 +70,24 @@ def convert_to_codecharta(
         path = _add_node(root, fqn, attrs)
         paths[fqn] = path
 
+    # Filter edges - remove references to packages
+    package_ids = {n["id"] for n in package_nodes}
+    all_edges = data.get("edges", [])
+    valid_edges = [
+        e
+        for e in all_edges
+        if e["from_id"] not in package_ids and e["to_id"] not in package_ids
+    ]
+
+    if len(valid_edges) < len(all_edges):
+        excluded_edges = len(all_edges) - len(valid_edges)
+        print(
+            f"   Edges: {len(valid_edges)} kept, {excluded_edges} excluded (package dependencies)"
+        )
+
     # Convert edges
     edges = []
-    for edge in data.get("edges", []):
+    for edge in valid_edges:
         src = paths.get(edge["from_id"])
         tgt = paths.get(edge["to_id"])
         if src and tgt:
