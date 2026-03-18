@@ -4,7 +4,7 @@ The registry manages all available metric calculators and ensures
 they are computed in the correct order based on their dependencies.
 """
 
-from typing import Dict, List, Type
+from typing import Dict, List, Optional, Type
 
 from .base import MetricCalculator, MetricContext
 
@@ -30,7 +30,7 @@ class MetricRegistry:
         calculator = calculator_class()
         self._calculators[calculator.name] = calculator
 
-    def get(self, name: str) -> MetricCalculator:
+    def get(self, name: str) -> Optional[MetricCalculator]:
         """Get calculator by name.
 
         Args:

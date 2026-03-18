@@ -12,7 +12,6 @@ Analyze Java project dependencies and visualize architecture with CodeCharta.
 ### Installation
 
 ```bash
-# Clone and install
 git clone <repo>
 cd complexity-visualizer
 python3 -m venv .venv
@@ -22,28 +21,29 @@ pip install -e .
 
 ### Usage
 
-**Simple - One command:**
+**One command does everything:**
 ```bash
 complexity-viz run /path/to/java-project --include-prefix com.mycompany
 ```
 
 This automatically:
 1. Generates dependency graphs with jdeps
-2. Computes metrics
+2. Computes metrics (coupling, complexity, etc.)
 3. Exports to CodeCharta format
 4. Opens visualization in browser
 
 **Result:** `dist/<project-name>/<project-name>.codecharta.cc.json`
 
+**View in CodeCharta:** https://maibornwolff.github.io/codecharta/visualization/app/index.html
+
 ---
 
-## Options
-
-### Essential Options
+## Essential Options
 
 | Option | Description | Example |
 |--------|-------------|---------|
 | `--include-prefix` | **Filter packages** (highly recommended) | `--include-prefix com.example` |
+| `--source` | Java source directory (auto-detected) | `--source ./src/main/java` |
 | `--output` | Custom output directory | `--output ./analysis` |
 | `--skip-dots` | Use existing .dot files | `--skip-dots` |
 | `--no-open` | Don't open browser | `--no-open` |
@@ -62,25 +62,6 @@ complexity-viz run ./my-project --include-prefix com.mycompany
 ```
 → Shows ONLY your project packages = clean architecture view ✅
 
----
-
-## Examples
-
-### Basic usage (with filtering)
-```bash
-complexity-viz run ./poseidon-backend \
-  --include-prefix com.totalenergies.poseidon2
-```
-
-### Advanced usage
-```bash
-complexity-viz run ./my-microservice \
-  --include-prefix com.example \
-  --output ./reports/architecture \
-  --source ./src/main/java \
-  --no-open
-```
-
 ### Multiple package prefixes
 ```bash
 complexity-viz run ./monorepo \
@@ -90,38 +71,28 @@ complexity-viz run ./monorepo \
 
 ---
 
-## Output Structure
+## Examples
 
-```
-dist/
-└── my-project/
-    ├── dots/                           # jdeps .dot files
-    ├── my-project.metrics.json         # Intermediate metrics
-    └── my-project.codecharta.cc.json   # ← Import this in CodeCharta
-```
-
-**View in CodeCharta:** https://maibornwolff.github.io/codecharta/visualization/app/index.html
-
----
-
-## Advanced: Step-by-Step Pipeline
-
-If you need more control, run each step individually:
-
+### Spring Boot Microservice
 ```bash
-# 1. Generate .dot files
-complexity-viz generate-dots ./my-project --include-prefix com.example
+complexity-viz run ./user-service \
+  --include-prefix com.company.userservice
+```
 
-# 2. Build graph and compute metrics
-complexity-viz build-graph ./from/my-project \
-  --include-prefix com.example \
-  --output ./dist
+### Multi-module Maven Project
+```bash
+complexity-viz run ./my-monorepo \
+  --include-prefix com.company.servicea \
+  --include-prefix com.company.serviceb \
+  --output ./architecture-analysis
+```
 
-# 3. Convert to CodeCharta format
-complexity-viz convert ./dist/metrics.json
-
-# 4. Open visualization
-complexity-viz visualize ./dist/codecharta.cc.json
+### CI/CD Integration
+```bash
+complexity-viz run ./project \
+  --include-prefix com.mycompany \
+  --output ./reports/architecture \
+  --no-open
 ```
 
 ---
@@ -147,43 +118,201 @@ java -version      # Check Java version
 complexity-viz run ./my-project --include-prefix com.mycompany
 ```
 
+### Source files not found
+**Solution:** Tool auto-detects `src/main/java`. If different:
+```bash
+complexity-viz run ./my-project --source ./custom/src/path
+```
+
 ---
 
-## Metrics Overview
+## Metrics Reference
 
-### Available Metrics
+### 🟢 Structural Metrics (Always Available)
 
-**🟢 Structural (always available)** - From `.dot` files:
+From dependency graph only - no source code required:
+
+| Metric | Description | Problem When | Use Case |
+|--------|-------------|--------------|----------|
+| **fanIn** | Classes depending on this | > 50 | Breaking change risk |
+| **fanOut** | Dependencies of this class | > 15 | God class detection |
+| **transitiveDeps** | Total reachable deps | > 50 | Change impact radius |
+| **cycleParticipation** | Cycle size (0 = no cycle) | > 0 | Circular dependencies |
+| **bidirectionalLinks** | Mutual deps (A↔B) | > 0 | Tight coupling |
+| **crossPackageDeps** | Package count | > 5 | Boundary violations |
+| **instability** | fanOut/(fanIn+fanOut) | Domain: >0.2<br>Infra: <0.8 | Architecture audit |
+
+### 🟡 Code Analysis Metrics (Requires `--source`)
+
+From Java source files:
 
 | Metric | Description | Problem When |
 |--------|-------------|--------------|
-| **fanIn** | Classes depending on this | > 50 (hub) |
-| **fanOut** | Dependencies of this class | > 15 (God class) |
-| **transitiveDeps** | Total reachable deps | > 50 (high impact) |
-| **cycleParticipation** | Cycle size | > 0 (circular deps) |
-| **bidirectionalLinks** | Mutual deps (A↔B) | > 0 (tight coupling) |
-| **crossPackageDeps** | Package count | > 5 (boundary violation) |
-| **instability** | fanOut/(fanIn+fanOut) | Domain: >0.2, Infra: <0.8 |
+| **complexity** | Cyclomatic complexity | > 20 |
+| **loc** | Lines of code | > 500 |
+| **methods** | Method count | > 30 |
+| **maintenanceBurden** | (transitiveDeps × fanIn) + complexity² | > 500 |
 
-**🟡 Code Analysis (requires `--source`)** - From source files:
+**Note:** `maintenanceBurden` uses only `(transitiveDeps × fanIn)` without `--source`, but adds `complexity²` when source is available for full score.
 
-| Metric | Description | Requires |
-|--------|-------------|----------|
-| **complexity** | Cyclomatic complexity | `--source` |
-| **loc** | Lines of code | `--source` |
-| **methods** | Method count | `--source` |
-| **maintenanceBurden** | (transitiveDeps × fanIn) + complexity² | `--source` for full score |
+### Metric Thresholds
 
-### Quick CodeCharta Configs
+| Metric | Good ✅ | Warning ⚠️ | Critical ❌ |
+|--------|---------|-----------|-------------|
+| cycleParticipation | 0 | 2-4 | >5 |
+| bidirectionalLinks | 0 | 1-2 | >3 |
+| crossPackageDeps | 0-2 | 3-5 | >6 |
+| instability (Domain) | 0.0-0.2 | 0.2-0.4 | >0.4 |
+| maintenanceBurden | <200 | 200-500 | >500 |
+| fanIn | <10 | 10-20 | >20 |
+| fanOut | <5 | 5-10 | >10 |
+| transitiveDeps | <20 | 20-50 | >50 |
 
-| Goal | Area | Height | Color |
-|------|------|--------|-------|
-| Find God classes | fanOut | transitiveDeps | instability |
-| Detect tight coupling | transitiveDeps | fanOut | bidirectionalLinks |
-| Audit architecture | crossPackageDeps | fanOut | cycleParticipation |
-| Refactoring priorities | fanIn | maintenanceBurden | cycleParticipation |
+---
 
-**📚 For details, thresholds, and examples:** [METRICS_GUIDE.md](./METRICS_GUIDE.md)
+## CodeCharta Configurations
+
+Ready-to-use configurations for common analysis tasks:
+
+### 1. 🔴 Find Dependency Cycles (Highest Priority)
+```
+Height: cycleParticipation
+Color:  maintenanceBurden
+Area:   fanIn
+Filter: cycleParticipation > 0
+```
+**Interpretation:**
+- Tall buildings = Large cycles (hard to break)
+- Red color = High maintenance burden
+- No buildings = No cycles ✅
+
+### 2. 👹 Detect God Classes
+```
+Height: maintenanceBurden
+Color:  fanIn
+Area:   transitiveDeps
+Filter: maintenanceBurden > 500
+```
+**Interpretation:**
+- Tallest buildings = Hardest to maintain
+- Red color = Many dependents (breaking change risk)
+- Large area = Wide blast radius
+
+### 3. 🏗️ Validate Clean Architecture
+```
+Height: instability
+Color:  crossPackageDeps
+Area:   fanIn
+Filter: package contains "domain"
+```
+**Expected:**
+- Domain: Short buildings (I < 0.2), green color
+- Application: Medium buildings (I ≈ 0.3-0.5)
+- Infrastructure: Tall buildings (I ≈ 0.7-1.0)
+
+**Violations:**
+- ❌ Tall buildings in domain = Domain depends on infrastructure
+- ❌ Red domain classes = Too many package dependencies
+
+### 4. 🔗 Identify Tight Coupling
+```
+Height: bidirectionalLinks
+Color:  crossPackageDeps
+Area:   fanIn
+Filter: bidirectionalLinks > 0
+```
+**Interpretation:**
+- Tall buildings = Many mutual dependencies (A↔B)
+- Red color = Crosses package boundaries
+- Action: Introduce interfaces (Dependency Inversion)
+
+### 5. 💥 Breaking Change Risk
+```
+Height: fanIn
+Color:  maintenanceBurden
+Area:   transitiveDeps
+Filter: fanIn > 10
+```
+**Interpretation:**
+- Tallest buildings = Most depended-upon classes
+- Red color = High change impact
+- Action: Version API carefully or decompose
+
+### 6. 🕸️ Dependency Hell
+```
+Height: transitiveDeps
+Color:  fanOut
+Area:   fanIn
+Filter: transitiveDeps > 50
+```
+**Interpretation:**
+- Tallest buildings = Longest dependency chains
+- Red color = Many direct dependencies
+- Action: Introduce layers, break chains
+
+### 7. 🔥 Overall Hotspots (Refactoring Priorities)
+```
+Height: maintenanceBurden
+Color:  cycleParticipation
+Area:   fanIn
+Filter: maintenanceBurden > 200
+Sort:   Height descending
+```
+**Risk Matrix:**
+- maintenanceBurden >1000 + cycle >0 = 🔥 URGENT
+- maintenanceBurden >1000 + no cycle = ❌ HIGH
+- maintenanceBurden 500-1000 + cycle = ⚠️ MEDIUM
+
+---
+
+## Understanding Instability (Robert C. Martin)
+
+**Formula:** `I = fanOut / (fanIn + fanOut)`
+
+**Range:** 0.0 (stable) → 1.0 (unstable)
+
+**Clean Architecture expectations:**
+- **Domain (0.0-0.2):** Stable core, no outgoing dependencies
+- **Application (0.3-0.5):** Moderate, orchestrates domain
+- **Infrastructure (0.7-1.0):** Unstable, depends on everything
+
+**Problem indicators:**
+- Domain I > 0.3 = Domain depends on infrastructure ❌
+- Infrastructure I < 0.5 = Infrastructure is too stable (leaky abstraction) ❌
+
+---
+
+## Advanced: Step-by-Step Pipeline
+
+If you need more control, run each step individually:
+
+```bash
+# 1. Generate .dot files
+complexity-viz generate-dots ./my-project --include-prefix com.example
+
+# 2. Build graph and compute metrics
+complexity-viz build-graph ./dist/my-project \
+  --include-prefix com.example \
+  --source ./src/main/java
+
+# 3. Convert to CodeCharta format
+complexity-viz convert ./dist/my-project/my-project.metrics.json
+
+# 4. Open visualization
+complexity-viz visualize ./dist/my-project/my-project.codecharta.cc.json
+```
+
+---
+
+## Output Structure
+
+```
+dist/
+└── my-project/
+    ├── dots/                           # jdeps .dot files
+    ├── my-project.metrics.json         # Intermediate metrics
+    └── my-project.codecharta.cc.json   # ← Import this in CodeCharta
+```
 
 ---
 
@@ -192,8 +321,57 @@ complexity-viz run ./my-project --include-prefix com.mycompany
 ```
 complexity-visualizer/
 ├── commands/          # CLI commands (run, generate-dots, build-graph, convert, visualize)
-├── core/              # Graph parsing, metrics computation
-├── exporters/         # CodeCharta export
+├── core/              # Graph parsing, metrics computation, algorithms
+├── exporters/         # CodeCharta & intermediate JSON export
 ├── analyzers/         # Java source code analysis
-└── utils/             # jdeps runner, auto-detection
+└── utils/             # jdeps runner, auto-detection, browser opener
 ```
+
+---
+
+## Pro Tips
+
+### Tip 1: Start with Hotspots
+Begin with the **Hotspots** configuration (maintenanceBurden + cycles) to get your "Top 10" list.
+
+### Tip 2: Layer by Layer
+Use filters to analyze specific layers:
+- `package contains "domain"`
+- `package contains "application"`
+- `package contains "infrastructure"`
+
+### Tip 3: Track Over Time
+Run analysis every sprint/month. Track trends:
+- Are cycles increasing or decreasing?
+- Is average maintenanceBurden going up or down?
+
+### Tip 4: Before/After Comparison
+```bash
+# Before refactoring
+complexity-viz run ./project --include-prefix com.example
+mv dist/project dist/project-before
+
+# After refactoring
+complexity-viz run ./project --include-prefix com.example
+mv dist/project dist/project-after
+
+# Compare in CodeCharta using delta view
+```
+
+### Tip 5: Skip .dot Regeneration
+```bash
+# First run generates .dot files
+complexity-viz run . --include-prefix com.company
+
+# Subsequent runs can skip this step (faster)
+complexity-viz run . --include-prefix com.company --skip-dots
+```
+
+---
+
+## References
+
+- **Cyclomatic Complexity:** McCabe (1976)
+- **Instability Metric:** Robert C. Martin, "Clean Architecture"
+- **CodeCharta:** https://maibornwolff.github.io/codecharta/
+- **Acyclic Dependencies Principle:** https://en.wikipedia.org/wiki/Acyclic_dependencies_principle
