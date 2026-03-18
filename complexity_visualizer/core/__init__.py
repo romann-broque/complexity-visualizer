@@ -5,7 +5,7 @@ Core graph building, metrics computation, and data models.
 
 from __future__ import annotations
 
-from .metrics import compute_metrics
+from .metric_computation import compute_metrics
 from .models import Graph, Node, Edge
 from .parsers import parse_dot_directory
 

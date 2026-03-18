@@ -149,6 +149,29 @@ complexity-viz run ./my-project --include-prefix com.mycompany
 
 ---
 
+## Metrics Computed
+
+The tool computes several coupling and complexity metrics:
+
+### Basic Metrics
+- **fanIn**: Number of classes depending on this class
+- **fanOut**: Number of direct dependencies
+- **transitiveDeps**: Total reachable classes (blast radius)
+- **complexity**: Cyclomatic complexity (from source)
+- **loc**: Lines of code (from source)
+- **methods**: Number of methods (from source)
+
+### Coupling Metrics (New!)
+- **cycleParticipation**: Size of dependency cycle (0 = no cycle)
+- **bidirectionalLinks**: Mutual dependencies count (A→B AND B→A)
+- **crossPackageDeps**: Number of different packages depended upon
+- **instability**: Robert C. Martin's stability metric (0 = stable, 1 = unstable)
+- **maintenanceBurden**: Composite change impact score
+
+**See [COUPLING_GUIDE.md](./COUPLING_GUIDE.md) for detailed usage and visualization strategies.**
+
+---
+
 ## Architecture
 
 ```

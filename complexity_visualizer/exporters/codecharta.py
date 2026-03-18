@@ -1,4 +1,5 @@
 """Convert graph.json to CodeCharta format."""
+
 import json
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -20,9 +21,7 @@ class CCNode:
 
 
 def convert_to_codecharta(
-        input_path: str,
-        output_path: str,
-        project_name: Optional[str] = None
+    input_path: str, output_path: str, project_name: Optional[str] = None
 ) -> None:
     """Convert graph.json to CodeCharta format."""
     data = json.loads(Path(input_path).read_text(encoding="utf-8"))
@@ -45,7 +44,11 @@ def convert_to_codecharta(
             "complexity": metrics.get("complexity", 1),
             "loc": metrics.get("loc", 0),
             "methods": metrics.get("methods", 0),
-            "maintenanceBurden": metrics.get("maintenanceBurden", 0)
+            "maintenanceBurden": metrics.get("maintenanceBurden", 0),
+            "cycleParticipation": metrics.get("cycleParticipation", 0),
+            "bidirectionalLinks": metrics.get("bidirectionalLinks", 0),
+            "crossPackageDeps": metrics.get("crossPackageDeps", 0),
+            "instability": metrics.get("instability", 0.0),
         }
 
         path = _add_node(root, fqn, attrs)
@@ -57,11 +60,13 @@ def convert_to_codecharta(
         src = paths.get(edge["from_id"])
         tgt = paths.get(edge["to_id"])
         if src and tgt:
-            edges.append({
-                "fromNodeName": src,
-                "toNodeName": tgt,
-                "attributes": {"weight": edge.get("weight", 1)}
-            })
+            edges.append(
+                {
+                    "fromNodeName": src,
+                    "toNodeName": tgt,
+                    "attributes": {"weight": edge.get("weight", 1)},
+                }
+            )
 
     # Output
     output = {
@@ -76,11 +81,17 @@ def convert_to_codecharta(
             "complexity": "absolute",
             "loc": "absolute",
             "methods": "absolute",
-            "maintenanceBurden": "absolute"
-        }
+            "maintenanceBurden": "absolute",
+            "cycleParticipation": "absolute",
+            "bidirectionalLinks": "absolute",
+            "crossPackageDeps": "absolute",
+            "instability": "relative",
+        },
     }
 
-    Path(output_path).write_text(json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8")
+    Path(output_path).write_text(
+        json.dumps(output, indent=2, ensure_ascii=False), encoding="utf-8"
+    )
 
 
 def _add_node(root: CCNode, fqn: str, attrs: Dict) -> str:
@@ -91,7 +102,9 @@ def _add_node(root: CCNode, fqn: str, attrs: Dict) -> str:
     # Navigate to parent folder
     current = root
     for seg in segments[:-1]:
-        child = next((c for c in current.children if c.name == seg and c.type == "Folder"), None)
+        child = next(
+            (c for c in current.children if c.name == seg and c.type == "Folder"), None
+        )
         if not child:
             child = CCNode(name=seg, type="Folder")
             current.children.append(child)

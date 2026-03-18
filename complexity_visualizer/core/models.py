@@ -41,6 +41,10 @@ class NodeMetrics:
     loc: int
     methods: int
     maintenanceBurden: float
+    cycleParticipation: int = 0
+    bidirectionalLinks: int = 0
+    crossPackageDeps: int = 0
+    instability: float = 0.0
 
 
 @dataclass

@@ -9,7 +9,7 @@ import sys
 from pathlib import Path
 
 from complexity_visualizer.core.parsers import parse_dot_directory
-from complexity_visualizer.core.metrics import compute_metrics
+from complexity_visualizer.core.metric_computation import compute_metrics
 from complexity_visualizer.exporters.intermediate import export_intermediate
 from complexity_visualizer.analyzers.java import analyze_source_directory
 

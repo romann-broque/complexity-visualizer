@@ -90,6 +90,14 @@ def _build_nodes_with_metrics(graph: Graph, metrics: Dict) -> List[NodeWithMetri
             loc=metrics["loc"][i],
             methods=metrics["methods"][i],
             maintenanceBurden=metrics["maintenanceBurden"][i],
+            cycleParticipation=metrics.get(
+                "cycleParticipation", [0] * len(graph.nodes)
+            )[i],
+            bidirectionalLinks=metrics.get(
+                "bidirectionalLinks", [0] * len(graph.nodes)
+            )[i],
+            crossPackageDeps=metrics.get("crossPackageDeps", [0] * len(graph.nodes))[i],
+            instability=metrics.get("instability", [0.0] * len(graph.nodes))[i],
         )
 
         nodes_with_metrics.append(
