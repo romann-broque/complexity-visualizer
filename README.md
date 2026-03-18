@@ -23,14 +23,17 @@ pip install -e .
 
 **One command does everything:**
 ```bash
-complexity-viz run /path/to/java-project --include-prefix com.mycompany
+complexity-viz run /path/to/java-project
 ```
 
 This automatically:
-1. Generates dependency graphs with jdeps
-2. Computes metrics (coupling, complexity, etc.)
-3. Exports to CodeCharta format
-4. Opens visualization in browser
+1. **Auto-detects your main package** (e.g., `com.company.project`) from source code
+2. Generates dependency graphs with jdeps
+3. Computes metrics (coupling, complexity, etc.)
+4. Exports to CodeCharta format
+5. Opens visualization in browser
+
+**Smart filtering:** Infrastructure packages (Spring, Azure, JDK, etc.) are automatically excluded.
 
 **Result:** `dist/<project-name>/<project-name>.codecharta.cc.json`
 
@@ -42,45 +45,81 @@ This automatically:
 
 | Option | Description | Example |
 |--------|-------------|---------|
-| `--include-prefix` | **Filter packages** (highly recommended) | `--include-prefix com.example` |
+| `--include-prefix` | **Override auto-detected package** | `--include-prefix com.mycompany.api` |
 | `--source` | Java source directory (auto-detected) | `--source ./src/main/java` |
 | `--output` | Custom output directory | `--output ./analysis` |
 | `--skip-dots` | Use existing .dot files | `--skip-dots` |
 | `--no-open` | Don't open browser | `--no-open` |
 
-### Why use `--include-prefix`?
+### Smart Package Filtering
 
-**Without filtering:**
+**Default behavior (auto-detection):**
 ```bash
 complexity-viz run ./my-project
 ```
-→ Includes ALL packages (Spring, Azure, JDK, etc.) = cluttered visualization
+→ Analyzes your source code to find the main package  
+→ Example: Detects `com.company.myproject` automatically  
+→ Excludes infrastructure: Spring, Azure, JDK, etc. ✅
 
-**With filtering:**
+**Override with custom filter:**
 ```bash
-complexity-viz run ./my-project --include-prefix com.mycompany
+complexity-viz run ./my-project --include-prefix com.mycompany.api
 ```
-→ Shows ONLY your project packages = clean architecture view ✅
+→ Shows ONLY `com.mycompany.api.*` packages ✅
+
+**Multiple prefixes:**
+```bash
+complexity-viz run ./my-project \
+  --include-prefix com.mycompany.api \
+  --include-prefix com.mycompany.core
+```
+→ Analyzes multiple specific packages ✅
 
 ### Multiple package prefixes
 ```bash
+# Analyze multiple modules/bounded contexts
 complexity-viz run ./monorepo \
   --include-prefix com.company.service-a \
   --include-prefix com.company.service-b
+```
+
+### Spring Boot Microservice
+```bash
+# Auto-detects your package (e.g., com.company.userservice)
+complexity-viz run ./user-service
+
+# Or specify explicitly
+complexity-viz run ./user-service --include-prefix com.company.userservice
 ```
 
 ---
 
 ## Examples
 
-### Spring Boot Microservice
+### Basic usage (auto-detection)
 ```bash
-complexity-viz run ./user-service \
-  --include-prefix com.company.userservice
+# Automatically detects your main package and excludes infrastructure
+complexity-viz run ./my-microservice
+```
+
+### Override auto-detection
+```bash
+# Use specific package instead of auto-detected one
+complexity-viz run ./my-microservice --include-prefix com.mycompany.api
+```
+
+### Advanced usage
+```bash
+complexity-viz run ./my-microservice \
+  --include-prefix com.example \
+  --output ./reports/architecture \
+  --source ./src/main/java \
+  --no-open
 ```
 
 ### Multi-module Maven Project
 ```bash
+# Analyze specific modules only
 complexity-viz run ./my-monorepo \
   --include-prefix com.company.servicea \
   --include-prefix com.company.serviceb \
@@ -89,6 +128,7 @@ complexity-viz run ./my-monorepo \
 
 ### CI/CD Integration
 ```bash
+# Generate report without opening browser
 complexity-viz run ./project \
   --include-prefix com.mycompany \
   --output ./reports/architecture \
@@ -112,10 +152,28 @@ mvn compile        # Maven
 java -version      # Check Java version
 ```
 
-### Visualization shows framework packages
-**Solution:** Use `--include-prefix` to filter:
+### Still seeing Spring/infrastructure packages
+**Cause:** Auto-detection might have failed or detected wrong package  
+**Solution:** Specify your package explicitly:
 ```bash
 complexity-viz run ./my-project --include-prefix com.mycompany
+```
+
+### Seeing warning "No package filter"
+**Cause:** Auto-detection couldn't find main package (no source code found)  
+**Solution:** Specify package and source manually:
+```bash
+complexity-viz run ./my-project \
+  --include-prefix com.mycompany \
+  --source ./src/main/java
+```
+
+### Visualization is empty or has very few nodes
+**Solution:** Check that auto-detected package is correct or specify manually:
+```bash
+# Check auto-detected package (shown at start of run)
+# If wrong, override with:
+complexity-viz run . --include-prefix com.yourcompany
 ```
 
 ### Source files not found

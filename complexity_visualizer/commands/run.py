@@ -16,6 +16,7 @@ from complexity_visualizer.commands.visualize import cmd_visualize
 from complexity_visualizer.utils.auto_detect import (
     find_dot_files,
     auto_detect_source_root,
+    resolve_include_prefixes,
 )
 
 
@@ -52,13 +53,36 @@ def cmd_run(args) -> int:
     print(f"🚀 Running full analysis pipeline: {project_path.name}")
     print("=" * 60)
 
+    # Auto-detect source directory first (needed for package detection)
+    source_path = getattr(args, "source", None)
+    if not source_path:
+        detected_source = auto_detect_source_root(project_path)
+        if detected_source:
+            source_path = str(detected_source)
+
+    source_root = Path(source_path) if source_path else None
+
+    # Resolve package filtering with auto-detection
+    include_prefixes = resolve_include_prefixes(args.include_prefix, source_root)
+
+    if args.include_prefix:
+        print(f"🔍 Filtering packages: {', '.join(args.include_prefix)}")
+    elif include_prefixes:
+        print(f"🔍 Auto-detected package: {', '.join(include_prefixes)}")
+    else:
+        print(
+            "⚠️  No package filter (will analyze ALL dependencies including Spring, Azure, etc.)"
+        )
+        print("   Tip: Use --include-prefix to focus on your code")
+
     # Determine project name
     project_name = args.project if args.project else project_path.name
 
     # Determine output directory (centralized structure with project subdirectory)
-    if args.output:
+    output_arg = getattr(args, "output", None)
+    if output_arg:
         # If user specifies --output, use it directly (no subdirectory)
-        output_dir = Path(args.output).resolve()
+        output_dir = Path(output_arg).resolve()
     else:
         # Default: dist/<project-name>/
         output_dir = Path.cwd() / "dist" / project_name
@@ -95,7 +119,7 @@ def cmd_run(args) -> int:
                 path=str(project_path),
                 output=str(dots_dir),
                 classes=None,  # Auto-detect
-                include_prefix=args.include_prefix,
+                include_prefix=include_prefixes,
             )
 
             result = cmd_generate_dots(generate_args)
@@ -121,8 +145,7 @@ def cmd_run(args) -> int:
     print("\n📍 Step 2/4: Build graph and compute metrics")
     print("-" * 60)
 
-    # Auto-detect source directory if not provided
-    source_path = args.source
+    # Re-detect source directory if not already done
     if not source_path:
         detected_source = auto_detect_source_root(project_path)
         if detected_source:
@@ -141,7 +164,7 @@ def cmd_run(args) -> int:
         dot_dir=str(dot_dir),
         source=source_path,
         output=str(output_dir),
-        include_prefix=args.include_prefix,
+        include_prefix=include_prefixes,
         project=project_name,
         metrics_filename=metrics_filename,
         verbose=getattr(args, "verbose", False),

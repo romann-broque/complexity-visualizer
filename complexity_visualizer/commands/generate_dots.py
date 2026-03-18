@@ -13,6 +13,7 @@ from complexity_visualizer.utils.auto_detect import (
     detect_project_type,
     find_compiled_classes,
     get_compile_command,
+    resolve_include_prefixes,
 )
 from complexity_visualizer.utils.jdeps_runner import run_jdeps, check_jdeps_available
 
@@ -37,7 +38,17 @@ def cmd_generate_dots(args) -> int:
         print(f"❌ Error: Project path not found: {project_path}", file=sys.stderr)
         return 1
 
+    # Resolve package filtering (always applies filtering)
+    include_prefixes = resolve_include_prefixes(args.include_prefix)
+
     print(f"🔍 Generating .dot files for: {project_path.name}")
+
+    if args.include_prefix:
+        print(f"   Filtering packages: {', '.join(include_prefixes)}")
+    else:
+        print(
+            f"   Default filtering: {', '.join(include_prefixes)} (excludes infrastructure)"
+        )
 
     # Check if jdeps is available
     if not check_jdeps_available():
@@ -86,7 +97,7 @@ def cmd_generate_dots(args) -> int:
     result = run_jdeps(
         str(classes_dir),
         str(output_dir),
-        prefixes=args.include_prefix,
+        prefixes=include_prefixes,
         verbose=args.verbose if hasattr(args, "verbose") else False,
     )
 

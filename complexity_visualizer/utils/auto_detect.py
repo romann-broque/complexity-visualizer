@@ -9,6 +9,9 @@ import shutil
 from pathlib import Path
 from typing import Dict, List, Optional
 
+# Default package prefixes for application code (excludes infrastructure)
+DEFAULT_PACKAGE_PREFIXES = ["com.", "org.", "io."]
+
 
 def detect_project_type(path: Path) -> Dict:
     """
@@ -183,4 +186,81 @@ def auto_detect_source_root(path: Path) -> Optional[Path]:
         if candidate.exists() and list(candidate.rglob("*.java")):
             return candidate
 
+    return None
+
+
+def detect_main_package(source_root: Path) -> Optional[str]:
+    """
+    Detect the main application package by finding the most common root package.
+
+    Args:
+        source_root: Java source root directory (e.g., src/main/java)
+
+    Returns:
+        Main package prefix (e.g., 'com.company.project'), or None if not found
+    """
+    if not source_root or not source_root.exists():
+        return None
+
+    package_counts = {}
+
+    # Find all .java files and extract their packages
+    for java_file in source_root.rglob("*.java"):
+        # Read first 20 lines to find package declaration
+        try:
+            with open(java_file, "r", encoding="utf-8") as f:
+                for line in f:
+                    line = line.strip()
+                    if line.startswith("package "):
+                        # Extract package name
+                        package = line[8:].rstrip(";").strip()
+
+                        # Get first 3 levels (e.g., com.company.project)
+                        parts = package.split(".")
+                        if len(parts) >= 3:
+                            root_package = ".".join(parts[:3])
+                            package_counts[root_package] = (
+                                package_counts.get(root_package, 0) + 1
+                            )
+                        break
+        except Exception:
+            continue
+
+    if not package_counts:
+        return None
+
+    # Return the most common root package
+    main_package = max(package_counts.items(), key=lambda x: x[1])[0]
+    return main_package
+
+
+def resolve_include_prefixes(
+    include_prefix: Optional[List[str]], source_root: Optional[Path] = None
+) -> Optional[List[str]]:
+    """
+    Resolve package prefixes to use for filtering.
+
+    Logic:
+    - If --include-prefix is provided: Use user-specified prefixes
+    - Otherwise: Try to auto-detect main package from source code
+    - If detection fails: Return None (no filtering)
+
+    Args:
+        include_prefix: User-specified prefixes (can be None or empty list)
+        source_root: Source root for auto-detection (optional)
+
+    Returns:
+        List of prefixes to include, or None for no filtering
+    """
+    if include_prefix:
+        # User specified custom prefixes
+        return include_prefix
+
+    # Try to auto-detect main package
+    if source_root:
+        detected = detect_main_package(source_root)
+        if detected:
+            return [detected]
+
+    # Default: no filtering (show everything)
     return None

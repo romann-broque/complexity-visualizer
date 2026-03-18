@@ -66,9 +66,6 @@ def main():
         "--source", "-s", help="Source code directory (for complexity analysis)"
     )
     build_parser.add_argument(
-        "--output", "-o", default="dist", help="Output directory (default: dist)"
-    )
-    build_parser.add_argument(
         "--include-prefix", action="append", help="Filter packages by prefix"
     )
     build_parser.add_argument("--project", help="Project name for metadata")
@@ -117,10 +114,9 @@ def main():
         "--source", "-s", help="Source code directory (auto-detected if not specified)"
     )
     run_parser.add_argument(
-        "--output", "-o", help="Output directory (default: ./dist/<project-name>)"
-    )
-    run_parser.add_argument(
-        "--include-prefix", action="append", help="Filter packages by prefix"
+        "--include-prefix",
+        action="append",
+        help="Filter packages by prefix (recommended)",
     )
     run_parser.add_argument("--project", help="Project name")
     run_parser.add_argument(

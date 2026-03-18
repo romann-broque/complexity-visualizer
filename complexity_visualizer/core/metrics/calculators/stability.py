@@ -38,7 +38,7 @@ class InstabilityCalculator(MetricCalculator):
 
     @property
     def codecharta_type(self) -> str:
-        return "relative"
+        return "absolute"
 
     def calculate(self, context: MetricContext) -> List[float]:
         fan_in = context.cache["fanIn"]
