@@ -149,26 +149,41 @@ complexity-viz run ./my-project --include-prefix com.mycompany
 
 ---
 
-## Metrics Computed
+## Metrics Overview
 
-The tool computes several coupling and complexity metrics:
+### Available Metrics
 
-### Basic Metrics
-- **fanIn**: Number of classes depending on this class
-- **fanOut**: Number of direct dependencies
-- **transitiveDeps**: Total reachable classes (blast radius)
-- **complexity**: Cyclomatic complexity (from source)
-- **loc**: Lines of code (from source)
-- **methods**: Number of methods (from source)
+**🟢 Structural (always available)** - From `.dot` files:
 
-### Coupling Metrics (New!)
-- **cycleParticipation**: Size of dependency cycle (0 = no cycle)
-- **bidirectionalLinks**: Mutual dependencies count (A→B AND B→A)
-- **crossPackageDeps**: Number of different packages depended upon
-- **instability**: Robert C. Martin's stability metric (0 = stable, 1 = unstable)
-- **maintenanceBurden**: Composite change impact score
+| Metric | Description | Problem When |
+|--------|-------------|--------------|
+| **fanIn** | Classes depending on this | > 50 (hub) |
+| **fanOut** | Dependencies of this class | > 15 (God class) |
+| **transitiveDeps** | Total reachable deps | > 50 (high impact) |
+| **cycleParticipation** | Cycle size | > 0 (circular deps) |
+| **bidirectionalLinks** | Mutual deps (A↔B) | > 0 (tight coupling) |
+| **crossPackageDeps** | Package count | > 5 (boundary violation) |
+| **instability** | fanOut/(fanIn+fanOut) | Domain: >0.2, Infra: <0.8 |
 
-**See [COUPLING_GUIDE.md](./COUPLING_GUIDE.md) for detailed usage and visualization strategies.**
+**🟡 Code Analysis (requires `--source`)** - From source files:
+
+| Metric | Description | Requires |
+|--------|-------------|----------|
+| **complexity** | Cyclomatic complexity | `--source` |
+| **loc** | Lines of code | `--source` |
+| **methods** | Method count | `--source` |
+| **maintenanceBurden** | (transitiveDeps × fanIn) + complexity² | `--source` for full score |
+
+### Quick CodeCharta Configs
+
+| Goal | Area | Height | Color |
+|------|------|--------|-------|
+| Find God classes | fanOut | transitiveDeps | instability |
+| Detect tight coupling | transitiveDeps | fanOut | bidirectionalLinks |
+| Audit architecture | crossPackageDeps | fanOut | cycleParticipation |
+| Refactoring priorities | fanIn | maintenanceBurden | cycleParticipation |
+
+**📚 For details, thresholds, and examples:** [METRICS_GUIDE.md](./METRICS_GUIDE.md)
 
 ---
 

@@ -156,3 +156,31 @@ def find_compiled_classes(path: Path) -> Optional[Path]:
             return location
 
     return None
+
+
+def auto_detect_source_root(path: Path) -> Optional[Path]:
+    """
+    Auto-detect Java source root directory.
+
+    Searches for common Java source directory structures
+    (Maven/Gradle: src/main/java, plain: src/).
+
+    Args:
+        path: Project root directory
+
+    Returns:
+        Path to source root containing .java files, or None if not found
+    """
+    # Common Java source locations (in order of preference)
+    candidates = [
+        path / "src" / "main" / "java",  # Maven/Gradle standard
+        path / "src" / "main" / "kotlin",  # Kotlin projects
+        path / "src",  # Plain Java projects
+        path / "java",  # Alternative structure
+    ]
+
+    for candidate in candidates:
+        if candidate.exists() and list(candidate.rglob("*.java")):
+            return candidate
+
+    return None

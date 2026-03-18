@@ -82,6 +82,10 @@ def _build_nodes_with_metrics(graph: Graph, metrics: Dict) -> List[NodeWithMetri
         # Remove inner class markers
         name = name.replace("$", ".")
 
+        # Detect node type: class names start with uppercase, packages with lowercase
+        # Example: "AILoadDistributionController" = class, "controller" = package
+        node_type = _infer_node_type(name, node.type)
+
         node_metrics = NodeMetrics(
             fanIn=metrics["fanIn"][i],
             fanOut=metrics["fanOut"][i],
@@ -104,13 +108,41 @@ def _build_nodes_with_metrics(graph: Graph, metrics: Dict) -> List[NodeWithMetri
             NodeWithMetrics(
                 id=node.id,
                 name=name,
-                type=node.type,
+                type=node_type,
                 package=package,
                 metrics=node_metrics,
             )
         )
 
     return nodes_with_metrics
+
+
+def _infer_node_type(name: str, default_type: str = "class") -> str:
+    """
+    Infer whether a node is a class or a package based on naming conventions.
+
+    Java naming conventions:
+    - Classes start with uppercase: AILoadDistributionController, Foo
+    - Packages start with lowercase: controller, application, com
+
+    Args:
+        name: The simple name (last part of FQN)
+        default_type: Default type if inference fails
+
+    Returns:
+        "class" or "package"
+    """
+    if not name:
+        return default_type
+
+    # Check first character
+    first_char = name[0]
+    if first_char.isupper():
+        return "class"
+    elif first_char.islower():
+        return "package"
+
+    return default_type
 
 
 def _build_aggregates(

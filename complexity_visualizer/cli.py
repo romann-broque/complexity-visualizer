@@ -72,6 +72,9 @@ def main():
         "--include-prefix", action="append", help="Filter packages by prefix"
     )
     build_parser.add_argument("--project", help="Project name for metadata")
+    build_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed analysis progress"
+    )
     build_parser.set_defaults(func=cmd_build_graph)
 
     # ========================================================================
@@ -127,6 +130,9 @@ def main():
     )
     run_parser.add_argument(
         "--no-open", action="store_true", help="Don't open browser after completion"
+    )
+    run_parser.add_argument(
+        "--verbose", "-v", action="store_true", help="Show detailed analysis progress"
     )
     run_parser.set_defaults(func=cmd_run)
 

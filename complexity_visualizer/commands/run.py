@@ -13,7 +13,10 @@ from complexity_visualizer.commands.generate_dots import cmd_generate_dots
 from complexity_visualizer.commands.build_graph import cmd_build_graph
 from complexity_visualizer.commands.convert import cmd_convert
 from complexity_visualizer.commands.visualize import cmd_visualize
-from complexity_visualizer.utils.auto_detect import find_dot_files
+from complexity_visualizer.utils.auto_detect import (
+    find_dot_files,
+    auto_detect_source_root,
+)
 
 
 def cmd_run(args) -> int:
@@ -118,15 +121,30 @@ def cmd_run(args) -> int:
     print("\n📍 Step 2/4: Build graph and compute metrics")
     print("-" * 60)
 
+    # Auto-detect source directory if not provided
+    source_path = args.source
+    if not source_path:
+        detected_source = auto_detect_source_root(project_path)
+        if detected_source:
+            source_path = str(detected_source)
+            print(
+                f"📁 Auto-detected source directory: {detected_source.relative_to(project_path)}"
+            )
+        else:
+            print(
+                "⚠️  No source directory detected. Running with structural metrics only."
+            )
+
     metrics_filename = f"{project_name}.metrics.json"
 
     build_args = Namespace(
         dot_dir=str(dot_dir),
-        source=args.source,
+        source=source_path,
         output=str(output_dir),
         include_prefix=args.include_prefix,
         project=project_name,
         metrics_filename=metrics_filename,
+        verbose=getattr(args, "verbose", False),
     )
 
     result = cmd_build_graph(build_args)
