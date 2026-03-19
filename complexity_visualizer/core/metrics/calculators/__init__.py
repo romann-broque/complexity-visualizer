@@ -6,7 +6,7 @@ or removed by simply editing this file.
 """
 
 from ..registry import get_registry
-from . import coupling, cycles, degrees, maintenance, stability, transitive
+from . import architecture, coupling, cycles, degrees, stability, transitive
 
 _registry = get_registry()
 
@@ -21,4 +21,5 @@ _registry.register(coupling.CrossPackageDepsCalculator)
 
 _registry.register(stability.InstabilityCalculator)
 
-_registry.register(maintenance.MaintenanceBurdenCalculator)
+_registry.register(architecture.AbstractnessCalculator)
+_registry.register(architecture.DistanceFromMainSequenceCalculator)

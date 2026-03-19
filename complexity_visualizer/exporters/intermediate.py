@@ -92,8 +92,6 @@ def _build_nodes_with_metrics(graph: Graph, metrics: Dict) -> List[NodeWithMetri
             transitiveDeps=metrics["transitiveDeps"][i],
             complexity=metrics["complexity"][i],
             loc=metrics["loc"][i],
-            methods=metrics["methods"][i],
-            maintenanceBurden=metrics["maintenanceBurden"][i],
             cycleParticipation=metrics.get(
                 "cycleParticipation", [0] * len(graph.nodes)
             )[i],
@@ -102,6 +100,10 @@ def _build_nodes_with_metrics(graph: Graph, metrics: Dict) -> List[NodeWithMetri
             )[i],
             crossPackageDeps=metrics.get("crossPackageDeps", [0] * len(graph.nodes))[i],
             instability=metrics.get("instability", [0.0] * len(graph.nodes))[i],
+            abstractness=metrics.get("abstractness", [0.0] * len(graph.nodes))[i],
+            distanceFromMainSequence=metrics.get(
+                "distanceFromMainSequence", [0.0] * len(graph.nodes)
+            )[i],
         )
 
         nodes_with_metrics.append(
@@ -188,8 +190,8 @@ def _identify_hotspots(nodes: List[NodeWithMetrics], top_n: int = 10) -> Hotspot
         class_nodes, key=lambda n: n.metrics.complexity, reverse=True
     )
     by_fan_out = sorted(class_nodes, key=lambda n: n.metrics.fanOut, reverse=True)
-    by_burden = sorted(
-        class_nodes, key=lambda n: n.metrics.maintenanceBurden, reverse=True
+    by_distance = sorted(
+        class_nodes, key=lambda n: n.metrics.distanceFromMainSequence, reverse=True
     )
 
     return Hotspots(
@@ -198,7 +200,9 @@ def _identify_hotspots(nodes: List[NodeWithMetrics], top_n: int = 10) -> Hotspot
         ],
         highFanOut=[n.id for n in by_fan_out[:top_n] if n.metrics.fanOut > 5],
         highBurden=[
-            n.id for n in by_burden[:top_n] if n.metrics.maintenanceBurden > 50
+            n.id
+            for n in by_distance[:top_n]
+            if n.metrics.distanceFromMainSequence > 0.5
         ],
     )
 

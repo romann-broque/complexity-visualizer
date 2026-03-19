@@ -21,8 +21,9 @@ class JavaComplexityAnalyzer:
         r"\|\|",  # Logical OR
     ]
 
-    METHOD_PATTERN = re.compile(
-        r"(public|private|protected|static|\s)+[\w<>\[\]]+\s+\w+\s*\([^)]*\)\s*\{"
+    # Pattern to detect abstract classes and interfaces
+    ABSTRACT_PATTERN = re.compile(
+        r"^\s*(?:public\s+)?(?:abstract\s+class|interface)\s+", re.MULTILINE
     )
 
     @staticmethod
@@ -34,16 +35,16 @@ class JavaComplexityAnalyzer:
             {
                 'complexity': cyclomatic complexity,
                 'loc': lines of code (non-empty, non-comment),
-                'methods': number of methods
+                'is_abstract': 1 if interface or abstract class, 0 otherwise
             }
         """
         if not file_path.exists():
-            return {"complexity": 0, "loc": 0, "methods": 0}
+            return {"complexity": 0, "loc": 0, "is_abstract": 0}
 
         try:
             content = file_path.read_text(encoding="utf-8")
         except Exception:
-            return {"complexity": 0, "loc": 0, "methods": 0}
+            return {"complexity": 0, "loc": 0, "is_abstract": 0}
 
         # Remove comments
         content_no_comments = JavaComplexityAnalyzer._remove_comments(content)
@@ -51,11 +52,13 @@ class JavaComplexityAnalyzer:
         # Calculate metrics
         complexity = JavaComplexityAnalyzer._calculate_complexity(content_no_comments)
         loc = JavaComplexityAnalyzer._count_loc(content_no_comments)
-        methods = len(
-            JavaComplexityAnalyzer.METHOD_PATTERN.findall(content_no_comments)
+        is_abstract = (
+            1
+            if JavaComplexityAnalyzer.ABSTRACT_PATTERN.search(content_no_comments)
+            else 0
         )
 
-        return {"complexity": complexity, "loc": loc, "methods": methods}
+        return {"complexity": complexity, "loc": loc, "is_abstract": is_abstract}
 
     @staticmethod
     def _remove_comments(content: str) -> str:
@@ -144,7 +147,7 @@ def analyze_source_directory(
             files_found += 1
             if verbose:
                 print(
-                    f"      ✓ {fqn} → {file_path.name} ({result['loc']} loc, {result['methods']} methods)"
+                    f"      ✓ {fqn} → {file_path.name} ({result['loc']} loc, {result['complexity']} complexity)"
                 )
         else:
             files_not_found.append(fqn)
@@ -170,13 +173,10 @@ def analyze_source_directory(
 
     # Calculate totals
     total_loc = sum(m["loc"] for m in metrics.values())
-    total_methods = sum(m["methods"] for m in metrics.values())
     total_complexity = sum(m["complexity"] for m in metrics.values())
 
     if total_loc > 0:
-        print(
-            f"   📊 Total: {total_loc:,} LOC, {total_methods:,} methods, {total_complexity:,} complexity"
-        )
+        print(f"   📊 Total: {total_loc:,} LOC, {total_complexity:,} complexity")
 
     return metrics
 

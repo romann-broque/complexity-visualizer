@@ -59,12 +59,12 @@ def convert_to_codecharta(
             "transitiveDeps": metrics.get("transitiveDeps", 0),
             "complexity": metrics.get("complexity", 1),
             "loc": metrics.get("loc", 0),
-            "methods": metrics.get("methods", 0),
-            "maintenanceBurden": metrics.get("maintenanceBurden", 0),
             "cycleParticipation": metrics.get("cycleParticipation", 0),
             "bidirectionalLinks": metrics.get("bidirectionalLinks", 0),
             "crossPackageDeps": metrics.get("crossPackageDeps", 0),
             "instability": metrics.get("instability", 0.0),
+            "abstractness": metrics.get("abstractness", 0.0),
+            "distanceFromMainSequence": metrics.get("distanceFromMainSequence", 0.0),
         }
 
         path = _add_node(root, fqn, attrs)
@@ -111,12 +111,58 @@ def convert_to_codecharta(
             "transitiveDeps": "absolute",
             "complexity": "absolute",
             "loc": "absolute",
-            "methods": "absolute",
-            "maintenanceBurden": "absolute",
             "cycleParticipation": "absolute",
             "bidirectionalLinks": "absolute",
             "crossPackageDeps": "absolute",
             "instability": "relative",
+            "abstractness": "relative",
+            "distanceFromMainSequence": "relative",
+        },
+        "attributeDescriptors": {
+            "fanIn": {
+                "title": "Fan In",
+                "description": "Classes that depend on this one (breaking change risk)",
+            },
+            "fanOut": {
+                "title": "Fan Out",
+                "description": "Dependencies this class has (responsibility sprawl)",
+            },
+            "transitiveDeps": {
+                "title": "Transitive Dependencies",
+                "description": "Total reachable dependencies, recursive (blast radius)",
+            },
+            "complexity": {
+                "title": "Cyclomatic Complexity",
+                "description": "McCabe complexity (number of decision points)",
+            },
+            "loc": {
+                "title": "Lines of Code",
+                "description": "Non-empty, non-comment lines",
+            },
+            "cycleParticipation": {
+                "title": "Cycle Participation",
+                "description": "Dependency cycle size, 0 = none",
+            },
+            "bidirectionalLinks": {
+                "title": "Bidirectional Links",
+                "description": "Mutual dependencies A↔B",
+            },
+            "crossPackageDeps": {
+                "title": "Cross Package Dependencies",
+                "description": "Distinct packages depended on",
+            },
+            "instability": {
+                "title": "Instability",
+                "description": "fanOut / (fanIn + fanOut) — 0 = stable, 1 = unstable",
+            },
+            "abstractness": {
+                "title": "Abstractness",
+                "description": "Ratio of interfaces and abstract classes to total classes in the package (0=concrete, 1=abstract)",
+            },
+            "distanceFromMainSequence": {
+                "title": "Distance from Main Sequence",
+                "description": "Distance from the ideal balance of abstractness and stability (0=balanced, 1=problematic)",
+            },
         },
     }
 

@@ -7,7 +7,7 @@ without affecting other metrics.
 
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Set
+from typing import Any, Dict, List, Optional, Set
 
 from ..models import Graph
 
@@ -21,6 +21,7 @@ class MetricContext:
     - Pre-computed adjacency list (for performance)
     - Node index mapping (for fast lookups)
     - Cache for storing previously computed metric results
+    - Optional source metrics (complexity, loc, is_abstract)
     """
 
     graph: Graph
@@ -28,6 +29,7 @@ class MetricContext:
     node_index: Dict[str, int]
     n_nodes: int
     cache: Dict[str, Any] = field(default_factory=dict)
+    source_metrics: Optional[Dict[str, Dict]] = None
 
 
 class MetricCalculator(ABC):
@@ -58,7 +60,7 @@ class MetricCalculator(ABC):
         """Names of other metrics this one depends on.
 
         Used for dependency resolution and topological sorting.
-        Example: maintenanceBurden depends on ['fanIn', 'transitiveDeps', 'cycleParticipation']
+        Example: distanceFromMainSequence depends on ['abstractness', 'instability']
 
         Returns:
             Set of metric names that must be computed before this one

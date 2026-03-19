@@ -135,7 +135,7 @@ def cmd_build_graph(args) -> int:
                         print(f"\n   💡 Try: --source {found_alternatives[0][0]}")
 
                     print(
-                        f"\n   Continuing with structural metrics only (loc=0, methods=0)\n"
+                        f"\n   Continuing with structural metrics only (loc=0, complexity=1)\n"
                     )
             except Exception as e:
                 print(
@@ -151,7 +151,7 @@ def cmd_build_graph(args) -> int:
             )
     else:
         print("\n⚠️  Note: Running without source code analysis (--source not provided)")
-        print("   Metrics affected: complexity, loc, methods will be 0")
+        print("   Metrics affected: complexity=1, loc=0, abstractness=0")
         print("   Use --source <path> to enable full code analysis\n")
 
     # Compute metrics

@@ -21,7 +21,7 @@ def compute_metrics(
 
     Args:
         graph: Dependency graph with nodes and edges
-        source_metrics: Optional source code metrics (complexity, loc, methods)
+        source_metrics: Optional source code metrics (complexity, loc, is_abstract)
 
     Returns:
         Dict mapping metric name to list of values
@@ -43,7 +43,12 @@ def compute_metrics(
             adj[s].append(t)
 
     context = MetricContext(
-        graph=graph, adjacency_list=adj, node_index=idx, n_nodes=n, cache={}
+        graph=graph,
+        adjacency_list=adj,
+        node_index=idx,
+        n_nodes=n,
+        cache={},
+        source_metrics=source_metrics,
     )
 
     registry = get_registry()
@@ -52,21 +57,17 @@ def compute_metrics(
     if source_metrics:
         complexity_list = []
         loc_list = []
-        methods_list = []
 
         for node in graph.nodes:
             src_metrics = source_metrics.get(node.id, {})
             complexity_list.append(src_metrics.get("complexity", 1))
             loc_list.append(src_metrics.get("loc", 0))
-            methods_list.append(src_metrics.get("methods", 0))
 
         metrics["complexity"] = complexity_list
         metrics["loc"] = loc_list
-        metrics["methods"] = methods_list
     else:
         metrics["complexity"] = [1] * n
         metrics["loc"] = [0] * n
-        metrics["methods"] = [0] * n
 
     summary_metrics = {
         "nodeCount": n,
