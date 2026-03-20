@@ -1,0 +1,163 @@
+Metadata-Version: 2.4
+Name: complexity-visualizer
+Version: 2.0.0
+Summary: Analyze and visualize software complexity with CodeCharta
+Author: Complexity Visualizer Team
+License: MIT
+Requires-Python: >=3.9
+Description-Content-Type: text/markdown
+Provides-Extra: dev
+Requires-Dist: pytest>=7.0; extra == "dev"
+Requires-Dist: pytest-cov; extra == "dev"
+Requires-Dist: ruff; extra == "dev"
+
+# Complexity Visualizer
+
+Analyze Java project dependencies and visualize architecture with [CodeCharta](https://codecharta.com/).
+
+## Quick Start
+
+**Prerequisites:** Python ≥ 3.9, Java JDK ≥ 11, compiled Java project.
+
+```bash
+git clone <repo>
+cd complexity-visualizer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+```bash
+complexity-viz run /path/to/java-project
+```
+
+This auto-detects your main package, computes dependency metrics, and opens a 3D visualization in CodeCharta. Infrastructure packages (Spring, Azure, JDK…) are excluded automatically.
+
+**Output:** `dist/<project-name>/<project-name>.codecharta.cc.json`
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--include-prefix` | Override auto-detected package (repeatable) |
+| `--source` | Java source directory (default: auto-detected) |
+| `--output` | Custom output directory |
+| `--skip-dots` | Reuse existing .dot files (faster reruns) |
+| `--no-open` | Don't open browser |
+
+```bash
+complexity-viz run ./monorepo \
+  --include-prefix com.company.service-a \
+  --include-prefix com.company.service-b \
+  --source ./src/main/java \
+  --no-open
+```
+
+---
+
+## Metrics
+
+All metrics are **relative** — there are no universal thresholds. Look for outliers in your own project: the buildings that tower above the rest.
+
+### Structural (from dependency graph, always available)
+
+| Metric | Description |
+|--------|-------------|
+| **fanIn** | Classes that depend on this one (breaking change risk) |
+| **fanOut** | Dependencies this class has (responsibility sprawl) |
+| **transitiveDeps** | Total reachable dependencies, recursive (blast radius) |
+| **cycleParticipation** | Dependency cycle size, 0 = none (any >0 is worth investigating) |
+| **bidirectionalLinks** | Mutual dependencies A↔B (should be 0) |
+| **crossPackageDeps** | Distinct packages depended on (boundary violations) |
+| **instability** | `fanOut / (fanIn + fanOut)` — 0 = stable, 1 = unstable |
+
+### Architecture (computed per package, always available)
+
+| Metric | Description |
+|--------|-------------|
+| **abstractness** | Ratio of interfaces + abstract classes to total classes in a package |
+| **distanceFromMainSequence** | `\|abstractness + instability - 1\|` — 0 = balanced, 1 = problematic |
+
+`distanceFromMainSequence` is the most discriminating architectural metric. It catches two problems: packages that are **stable but concrete** (rigid, painful to change) and packages that are **unstable but abstract** (over-engineered, useless contracts). A well-designed package sits near 0.
+
+### Code Analysis (requires `--source`)
+
+| Metric | Description |
+|--------|-------------|
+| **complexity** | Cyclomatic complexity (McCabe) |
+| **loc** | Lines of code (used as area metric for visual weight) |
+
+---
+
+## CodeCharta Configurations
+
+Each configuration answers one question.
+In CodeCharta, area = building footprint, height = building height, color = building color (green→red).
+
+### 🏛️ Architecture Compliance — *"Does our code follow the dependency rule?"*
+
+```
+Area:   loc
+Height: distanceFromMainSequence
+Color:  instability
+```
+
+A healthy project looks flat. Tall red buildings are violations — typically domain classes that depend on infrastructure.
+
+### 🔄 Dependency Cycles — *"Where are the circular dependencies?"*
+
+```
+Area:   fanIn
+Height: cycleParticipation
+Color:  transitiveDeps
+```
+
+Flat map = no cycles. Tall buildings = large cycles. Prioritize breaking cycles on high-fanIn classes first.
+
+### 🔗 Tight Coupling — *"Which classes are locked together?"*
+
+```
+Area:   fanIn
+Height: bidirectionalLinks
+Color:  crossPackageDeps
+```
+
+Tall red buildings = mutual dependencies crossing package boundaries. Fix with Dependency Inversion (introduce an interface).
+
+### 🔥 Refactoring Hotspots — *"Where should we invest effort?"*
+
+```
+Area:   loc
+Height: complexity (with --source) or fanOut (without)
+Color:  fanIn
+```
+
+Tall + red + large = complex, heavily depended upon, and big. Highest refactoring ROI.
+
+---
+
+## Step-by-Step Pipeline
+
+For more control, run each step individually:
+
+```bash
+complexity-viz generate-dots ./my-project --include-prefix com.example
+complexity-viz build-graph ./dist/my-project --include-prefix com.example --source ./src/main/java
+complexity-viz convert ./dist/my-project/my-project.metrics.json
+complexity-viz visualize ./dist/my-project/my-project.codecharta.cc.json
+```
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| No compiled classes found | `./gradlew build` or `mvn compile` first |
+| jdeps not found | Install Java JDK ≥ 11 |
+| Still seeing Spring/infra packages | Use `--include-prefix com.mycompany` |
+| Empty visualization | Check auto-detected package or override with `--include-prefix` |
+
+## References
+
+- Robert C. Martin — *Clean Architecture* (instability, abstractness, distance from main sequence)
+- Thomas McCabe — *A Complexity Measure*, 1976
+- [CodeCharta](https://codecharta.com/)

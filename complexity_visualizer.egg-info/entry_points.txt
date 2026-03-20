@@ -1,0 +1,2 @@
+[console_scripts]
+complexity-viz = complexity_visualizer.cli:main

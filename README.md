@@ -1,0 +1,156 @@
+# Complexity Visualizer
+
+Analyze Java project dependencies and visualize architecture with [CodeCharta](https://codecharta.com/).
+
+## Quick Start
+
+**Prerequisites:** Python ≥ 3.9, Java JDK ≥ 11, compiled Java project.
+
+```bash
+git clone <repo>
+cd complexity-visualizer
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -e .
+```
+
+```bash
+complexity-viz run /path/to/java-project
+```
+
+This auto-detects your main package, computes dependency metrics, and opens a 3D visualization in CodeCharta. Infrastructure packages (Spring, Azure, JDK…) are excluded automatically.
+
+**Output:** `dist/<project-name>/<project-name>.codecharta.cc.json`
+
+## Options
+
+| Option | Description |
+|--------|-------------|
+| `--include-prefix` | Override auto-detected package (repeatable) |
+| `--source` | Java source directory (default: auto-detected) |
+| `--output` | Custom output directory |
+| `--skip-dots` | Reuse existing .dot files (faster reruns) |
+| `--no-open` | Don't open browser |
+
+```bash
+complexity-viz run ./monorepo \
+  --include-prefix com.company.service-a \
+  --include-prefix com.company.service-b \
+  --source ./src/main/java \
+  --no-open
+```
+
+---
+
+## Metrics
+
+All metrics are **relative** — there are no universal thresholds. Look for outliers in your own project: the buildings that tower above the rest. Metrics are conversation starters, not targets (Goodhart's Law).
+
+### Structural (from dependency graph, always available)
+
+| Metric | What it measures | How it differs |
+|--------|-----------------|----------------|
+| **fanIn** | Classes that directly depend on this one | Immediate incoming connections only |
+| **fanOut** | Classes this one directly depends on | Immediate outgoing connections only |
+| **transitiveDeps** | All classes reachable by following deps recursively | The full chain, not just direct neighbors — blast radius |
+| **cycleParticipation** | Size of the dependency cycle (0 = none) | Catches all circular deps (A→B→C→A), including bidirectional links |
+| **bidirectionalLinks** | Mutual dependencies A↔B | Special case: cycle of exactly 2 classes. Fix = add interface |
+| **crossPackageDeps** | Distinct packages depended on | Unlike fanOut which counts classes, this counts package boundaries crossed |
+| **instability** | `fanOut / (fanIn + fanOut)` | 0 = hard to change, 1 = easy to change. Neither is good or bad — depends on the class's role |
+| **hubScore** | `fanIn × fanOut` | God class detector: high only when a class is both heavily depended upon AND heavily depending |
+
+A note on **instability**: the name is misleading. High instability means "easy to change safely" — few things depend on you. Low instability means "hard to change" — many dependents would break. A stable (low I) class should ideally be abstract (interface/contract). A concrete class with low instability is a risk.
+
+### Code Analysis (requires `--source`)
+
+| Metric | What it measures |
+|--------|-----------------|
+| **complexity** | Cyclomatic complexity (McCabe) — execution paths through the code. Independent from the dependency graph. |
+| **loc** | Lines of code — used as area metric for visual weight in CodeCharta. |
+
+---
+
+## CodeCharta Configurations
+
+Each configuration answers one question. In CodeCharta: area = building footprint, height = building height, color = green→red gradient.
+
+### 🔄 Dependency Cycles — *"Where are the circular dependencies?"*
+
+```
+Area:   fanIn
+Height: cycleParticipation
+Color:  transitiveDeps
+```
+
+Flat map = no cycles. Tall red buildings = large cycles with high blast radius — fix these first. Prioritize breaking cycles on high-fanIn classes for maximum architectural payoff.
+
+### 🔗 Tight Coupling — *"Which classes are locked together?"*
+
+```
+Area:   fanIn
+Height: bidirectionalLinks
+Color:  crossPackageDeps
+```
+
+Tall red = mutual dependencies crossing package boundaries — high priority. Tall green = mutual deps within same package — lower priority. Fix with Dependency Inversion (introduce an interface).
+
+### 🔥 Refactoring Hotspots — *"Where should we invest effort?"*
+
+```
+Area:   fanOut
+Height: complexity (with --source) or cycleParticipation (without)
+Color:  instability
+```
+
+The real hotspots are tall buildings that are NOT red: complex AND hard to change (low instability = many dependents). Tall red buildings are complex but easy to change — lower risk.
+
+### 👹 Hub Detection — *"Where are the God classes?"*
+
+```
+Area:   loc
+Height: hubScore
+Color:  cycleParticipation
+```
+
+Tall buildings = classes at the crossroads of the dependency graph (high fanIn × fanOut). Red = also in a cycle. These are the single biggest architectural risks — consider splitting them.
+
+---
+
+## Step-by-Step Pipeline
+
+For more control, run each step individually:
+
+```bash
+complexity-viz generate-dots ./my-project --include-prefix com.example
+complexity-viz build-graph ./dist/my-project --include-prefix com.example --source ./src/main/java
+complexity-viz convert ./dist/my-project/my-project.metrics.json
+complexity-viz visualize ./dist/my-project/my-project.codecharta.cc.json
+```
+
+## Before/After Comparison
+
+```bash
+# Before refactoring
+complexity-viz run ./project --no-open
+cp -r dist/project dist/project-before
+
+# After refactoring
+complexity-viz run ./project --no-open
+
+# Compare using CodeCharta's Delta mode
+```
+
+## Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| No compiled classes found | `./gradlew build` or `mvn compile` first |
+| jdeps not found | Install Java JDK ≥ 11 |
+| Still seeing Spring/infra packages | Use `--include-prefix com.mycompany` |
+| Empty visualization | Check auto-detected package or override with `--include-prefix` |
+
+## References
+
+- Robert C. Martin — *Clean Code*, *Agile Software Development: Principles, Patterns, and Practices*
+- Thomas McCabe — *A Complexity Measure*, 1976
+- [CodeCharta](https://codecharta.com/)

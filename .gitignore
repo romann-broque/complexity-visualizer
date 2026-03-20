@@ -1,71 +1,22 @@
-# --- OS cruft ---
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+*.egg-info/
+
+# IDEs
+.idea/
+.vscode/
+*.iml
+
+# Build outputs
+dist/
+build/
+
+# OS
 .DS_Store
 Thumbs.db
 
-# --- Logs & dumps ---
-*.log
-*.out
-hs_err_pid*
-replay_pid*
-
-# --- Python / Build outputs ---
-
-**/__pycache__/
-__pycache__
-**.pyc
-
-# --- Java / Build outputs ---
-*.class
-target/
-from/
-dist/
-out/
-build/
-!src/**/build/
-
-# --- Maven ---
-.mvn/timing.properties
-!mvnw
-!mvnw.cmd
-!.mvn/wrapper/maven-wrapper.jar
-!.mvn/wrapper/maven-wrapper.properties
-
-# --- Gradle ---
-.gradle/
-!gradlew
-!gradlew.bat
-!gradle/wrapper/gradle-wrapper.jar
-!gradle/wrapper/gradle-wrapper.properties
-
-# --- IDEs ---
-# IntelliJ / Android Studio
-.idea/
-*.iml
-*.ipr
-*.iws
-# Eclipse
-.project
-.classpath
-.settings/
-# VS Code
-.vscode/
-
-# --- Coverage / Reports ---
-jacoco.exec
-*.ec
-*.exec
-coverage/
-.target/site/
-target/site/
-.build-cache/
-.sonar/
-.scannerwork/
-
-# --- Tools / Lint caches ---
-.checkstyle
-.eslintcache
-
-# --- Containers / Misc ---
-docker/**/data/
-.tmp/
-.tmp-*/
+# Project specific
+.ruff_cache/
