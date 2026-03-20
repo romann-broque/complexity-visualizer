@@ -13,19 +13,13 @@ Requires-Dist: ruff; extra == "dev"
 
 # Complexity Visualizer
 
-Analyze Java project dependencies and visualize architecture with CodeCharta.
+Analyze Java project dependencies and visualize architecture with [CodeCharta](https://codecharta.com/).
 
 ## Quick Start
 
-### Prerequisites
-- Python ≥ 3.9
-- Java JDK ≥ 11 (for jdeps)
-- Compiled Java project
-
-### Installation
+**Prerequisites:** Python ≥ 3.9, Java JDK ≥ 11, compiled Java project.
 
 ```bash
-# Clone and install
 git clone <repo>
 cd complexity-visualizer
 python3 -m venv .venv
@@ -33,224 +27,137 @@ source .venv/bin/activate
 pip install -e .
 ```
 
-### Usage
-
-**Simple - One command:**
 ```bash
-complexity-viz run /path/to/java-project --include-prefix com.mycompany
+complexity-viz run /path/to/java-project
 ```
 
-This automatically:
-1. Generates dependency graphs with jdeps
-2. Computes metrics
-3. Exports to CodeCharta format
-4. Opens visualization in browser
+This auto-detects your main package, computes dependency metrics, and opens a 3D visualization in CodeCharta. Infrastructure packages (Spring, Azure, JDK…) are excluded automatically.
 
-**Result:** `dist/<project-name>/<project-name>.codecharta.cc.json`
-
----
+**Output:** `dist/<project-name>/<project-name>.codecharta.cc.json`
 
 ## Options
 
-### Essential Options
+| Option | Description |
+|--------|-------------|
+| `--include-prefix` | Override auto-detected package (repeatable) |
+| `--source` | Java source directory (default: auto-detected) |
+| `--output` | Custom output directory |
+| `--skip-dots` | Reuse existing .dot files (faster reruns) |
+| `--no-open` | Don't open browser |
 
-| Option | Description | Example |
-|--------|-------------|---------|
-| `--include-prefix` | **Filter packages** (highly recommended) | `--include-prefix com.example` |
-| `--output` | Custom output directory | `--output ./analysis` |
-| `--skip-dots` | Use existing .dot files | `--skip-dots` |
-| `--no-open` | Don't open browser | `--no-open` |
-
-### Why use `--include-prefix`?
-
-**Without filtering:**
 ```bash
-complexity-viz run ./my-project
-```
-→ Includes ALL packages (Spring, Azure, JDK, etc.) = cluttered visualization
-
-**With filtering:**
-```bash
-complexity-viz run ./my-project --include-prefix com.mycompany
-```
-→ Shows ONLY your project packages = clean architecture view ✅
-
----
-
-## Examples
-
-### Basic usage (with filtering)
-```bash
-complexity-viz run ./poseidon-backend \
-  --include-prefix com.totalenergies.poseidon2
-```
-
-### Advanced usage
-```bash
-complexity-viz run ./my-microservice \
-  --include-prefix com.example \
-  --output ./reports/architecture \
+complexity-viz run ./monorepo \
+  --include-prefix com.company.service-a \
+  --include-prefix com.company.service-b \
   --source ./src/main/java \
   --no-open
 ```
 
-### Multiple package prefixes
-```bash
-complexity-viz run ./monorepo \
-  --include-prefix com.company.service-a \
-  --include-prefix com.company.service-b
-```
+---
+
+## Metrics
+
+All metrics are **relative** — there are no universal thresholds. Look for outliers in your own project: the buildings that tower above the rest.
+
+### Structural (from dependency graph, always available)
+
+| Metric | Description |
+|--------|-------------|
+| **fanIn** | Classes that depend on this one (breaking change risk) |
+| **fanOut** | Dependencies this class has (responsibility sprawl) |
+| **transitiveDeps** | Total reachable dependencies, recursive (blast radius) |
+| **cycleParticipation** | Dependency cycle size, 0 = none (any >0 is worth investigating) |
+| **bidirectionalLinks** | Mutual dependencies A↔B (should be 0) |
+| **crossPackageDeps** | Distinct packages depended on (boundary violations) |
+| **instability** | `fanOut / (fanIn + fanOut)` — 0 = stable, 1 = unstable |
+
+### Architecture (computed per package, always available)
+
+| Metric | Description |
+|--------|-------------|
+| **abstractness** | Ratio of interfaces + abstract classes to total classes in a package |
+| **distanceFromMainSequence** | `\|abstractness + instability - 1\|` — 0 = balanced, 1 = problematic |
+
+`distanceFromMainSequence` is the most discriminating architectural metric. It catches two problems: packages that are **stable but concrete** (rigid, painful to change) and packages that are **unstable but abstract** (over-engineered, useless contracts). A well-designed package sits near 0.
+
+### Code Analysis (requires `--source`)
+
+| Metric | Description |
+|--------|-------------|
+| **complexity** | Cyclomatic complexity (McCabe) |
+| **loc** | Lines of code (used as area metric for visual weight) |
 
 ---
 
-## Output Structure
+## CodeCharta Configurations
+
+Each configuration answers one question.
+In CodeCharta, area = building footprint, height = building height, color = building color (green→red).
+
+### 🏛️ Architecture Compliance — *"Does our code follow the dependency rule?"*
 
 ```
-dist/
-└── my-project/
-    ├── dots/                           # jdeps .dot files
-    ├── my-project.metrics.json         # Intermediate metrics
-    └── my-project.codecharta.cc.json   # ← Import this in CodeCharta
+Area:   loc
+Height: distanceFromMainSequence
+Color:  instability
 ```
 
-**View in CodeCharta:** https://maibornwolff.github.io/codecharta/visualization/app/index.html
+A healthy project looks flat. Tall red buildings are violations — typically domain classes that depend on infrastructure.
+
+### 🔄 Dependency Cycles — *"Where are the circular dependencies?"*
+
+```
+Area:   fanIn
+Height: cycleParticipation
+Color:  transitiveDeps
+```
+
+Flat map = no cycles. Tall buildings = large cycles. Prioritize breaking cycles on high-fanIn classes first.
+
+### 🔗 Tight Coupling — *"Which classes are locked together?"*
+
+```
+Area:   fanIn
+Height: bidirectionalLinks
+Color:  crossPackageDeps
+```
+
+Tall red buildings = mutual dependencies crossing package boundaries. Fix with Dependency Inversion (introduce an interface).
+
+### 🔥 Refactoring Hotspots — *"Where should we invest effort?"*
+
+```
+Area:   loc
+Height: complexity (with --source) or fanOut (without)
+Color:  fanIn
+```
+
+Tall + red + large = complex, heavily depended upon, and big. Highest refactoring ROI.
 
 ---
 
-## Advanced: Step-by-Step Pipeline
+## Step-by-Step Pipeline
 
-If you need more control, run each step individually:
+For more control, run each step individually:
 
 ```bash
-# 1. Generate .dot files
 complexity-viz generate-dots ./my-project --include-prefix com.example
-
-# 2. Build graph and compute metrics
-complexity-viz build-graph ./from/my-project \
-  --include-prefix com.example \
-  --output ./dist
-
-# 3. Convert to CodeCharta format
-complexity-viz convert ./dist/metrics.json
-
-# 4. Open visualization
-complexity-viz visualize ./dist/codecharta.cc.json
+complexity-viz build-graph ./dist/my-project --include-prefix com.example --source ./src/main/java
+complexity-viz convert ./dist/my-project/my-project.metrics.json
+complexity-viz visualize ./dist/my-project/my-project.codecharta.cc.json
 ```
-
----
 
 ## Troubleshooting
 
-### "No compiled classes found"
-**Solution:** Compile your project first:
-```bash
-./gradlew build    # Gradle
-mvn compile        # Maven
-```
+| Problem | Solution |
+|---------|----------|
+| No compiled classes found | `./gradlew build` or `mvn compile` first |
+| jdeps not found | Install Java JDK ≥ 11 |
+| Still seeing Spring/infra packages | Use `--include-prefix com.mycompany` |
+| Empty visualization | Check auto-detected package or override with `--include-prefix` |
 
-### "jdeps not found"
-**Solution:** Install Java JDK ≥ 11:
-```bash
-java -version      # Check Java version
-```
+## References
 
-### Visualization shows framework packages
-**Solution:** Use `--include-prefix` to filter:
-```bash
-complexity-viz run ./my-project --include-prefix com.mycompany
-```
-
----
-
-## Metrics Explained
-
-### Available Metrics
-
-#### ✅ Structural Metrics (Always Available)
-These metrics are computed from `.dot` dependency files:
-
-| Metric | Description | Problem When... |
-|--------|-------------|-----------------|
-| **fanIn** | Number of classes depending on this class | Very high (hub class) |
-| **fanOut** | Number of classes this class depends on | > 10-15 (God class) |
-| **transitiveDeps** | Total reachable dependencies (blast radius) | > 50 (high change impact) |
-| **cycleParticipation** | Size of dependency cycle this class is in | > 0 (circular dependencies) |
-| **bidirectionalLinks** | Count of mutual dependencies (A→B AND B→A) | > 0 (tight coupling) |
-| **crossPackageDeps** | Number of different packages depended upon | > 5 (architecture violation) |
-| **instability** | fanOut / (fanIn + fanOut) - Martin's metric | Domain: > 0.2, Infra: < 0.8 |
-
-#### ⚠️ Code Analysis Metrics (Require `--source`)
-These metrics need source code analysis with `--source` flag:
-
-| Metric | Description | Requires |
-|--------|-------------|----------|
-| **complexity** | Cyclomatic complexity (decision points) | `--source` |
-| **loc** | Lines of code (non-empty, non-comment) | `--source` |
-| **methods** | Number of methods in the class | `--source` |
-| **maintenanceBurden** | (transitiveDeps × fanIn) + complexity² | `--source` for accurate score |
-
-**Note:** Without `--source`, complexity/loc/methods will be 0, and maintenanceBurden will only reflect structural coupling.
-
-### Understanding Instability
-
-**Robert C. Martin's Instability Metric** helps detect Clean Architecture violations:
-
-- **I = 0.0**: Maximally stable (many dependents, few dependencies)
-  - **Expected for:** Domain entities, core business logic
-  - **Red flag if:** Infrastructure classes are too stable
-  
-- **I = 1.0**: Maximally unstable (few dependents, many dependencies)
-  - **Expected for:** Controllers, adapters, infrastructure
-  - **Red flag if:** Domain entities are too unstable
-
-- **I = 0.3-0.5**: Moderate instability
-  - **Expected for:** Application services, use cases
-
-### Recommended CodeCharta Configurations
-
-#### Configuration 1: Coupling Overview
-```
-Area:   fanOut
-Height: transitiveDeps
-Color:  instability
-```
-**Best for:** Identifying architectural violations, finding God classes
-
-#### Configuration 2: Tight Coupling Detection
-```
-Area:   transitiveDeps
-Height: fanOut
-Color:  bidirectionalLinks
-```
-**Best for:** Finding mutual dependencies, spotting refactoring candidates
-
-#### Configuration 3: Bounded Context Violations
-```
-Area:   crossPackageDeps
-Height: fanOut
-Color:  cycleParticipation
-```
-**Best for:** Clean Architecture audits, package boundary violations
-
-#### Configuration 4: Change Impact Analysis
-```
-Area:   fanIn
-Height: transitiveDeps
-Color:  maintenanceBurden (with --source)
-```
-**Best for:** Risk assessment, prioritizing refactoring efforts
-
-**📚 For detailed explanations and examples, see [METRICS_GUIDE.md](./METRICS_GUIDE.md)**
-
----
-
-## Architecture
-
-```
-complexity-visualizer/
-├── commands/          # CLI commands (run, generate-dots, build-graph, convert, visualize)
-├── core/              # Graph parsing, metrics computation
-├── exporters/         # CodeCharta export
-├── analyzers/         # Java source code analysis
-└── utils/             # jdeps runner, auto-detection
-```
+- Robert C. Martin — *Clean Architecture* (instability, abstractness, distance from main sequence)
+- Thomas McCabe — *A Complexity Measure*, 1976
+- [CodeCharta](https://codecharta.com/)

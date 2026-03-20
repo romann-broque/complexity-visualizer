@@ -130,6 +130,7 @@ def get_compile_command(project_type: str) -> Optional[str]:
 def find_compiled_classes(path: Path) -> Optional[Path]:
     """
     Find the directory containing compiled .class files.
+    Supports multi-module projects by searching recursively.
 
     Args:
         path: Project root directory
@@ -139,13 +140,13 @@ def find_compiled_classes(path: Path) -> Optional[Path]:
     """
     project_info = detect_project_type(path)
 
-    # Check detected class directories
+    # Check detected class directories at root level
     for class_dir in project_info["class_dirs"]:
         class_path = path / class_dir
         if class_path.exists() and list(class_path.rglob("*.class")):
             return class_path
 
-    # Fallback: search common locations
+    # Fallback: search common locations at root level
     common_locations = [
         path / "target" / "classes",
         path / "build" / "classes" / "java" / "main",
@@ -158,6 +159,28 @@ def find_compiled_classes(path: Path) -> Optional[Path]:
         if location.exists() and list(location.rglob("*.class")):
             return location
 
+    # Multi-module support: search in subdirectories
+    # Pattern: */build/classes/java/main or */target/classes
+    multi_module_patterns = [
+        "*/build/classes/java/main",
+        "*/build/classes/kotlin/main",
+        "*/target/classes",
+        "*/out/production",
+    ]
+
+    candidates = []
+    for pattern in multi_module_patterns:
+        for candidate in path.glob(pattern):
+            if candidate.is_dir():
+                class_files = list(candidate.rglob("*.class"))
+                if class_files:
+                    candidates.append((candidate, len(class_files)))
+
+    # Return the directory with the most .class files
+    if candidates:
+        candidates.sort(key=lambda x: x[1], reverse=True)
+        return candidates[0][0]
+
     return None
 
 
@@ -167,6 +190,7 @@ def auto_detect_source_root(path: Path) -> Optional[Path]:
 
     Searches for common Java source directory structures
     (Maven/Gradle: src/main/java, plain: src/).
+    Supports multi-module projects by searching recursively.
 
     Args:
         path: Project root directory
@@ -182,11 +206,55 @@ def auto_detect_source_root(path: Path) -> Optional[Path]:
         path / "java",  # Alternative structure
     ]
 
+    # First try direct paths
     for candidate in candidates:
         if candidate.exists() and list(candidate.rglob("*.java")):
             return candidate
 
+    # If not found, search for multi-module structure (e.g., */src/main/java)
+    # This handles projects like: project-root/domain/src/main/java
+    multi_module_candidates = []
+
+    for pattern in ["*/src/main/java", "*/src/main/kotlin", "*/src"]:
+        for candidate in path.glob(pattern):
+            if candidate.is_dir():
+                java_files = list(candidate.rglob("*.java"))
+                if java_files:
+                    multi_module_candidates.append((candidate, len(java_files)))
+
+    # Return the source root with the most Java files
+    if multi_module_candidates:
+        multi_module_candidates.sort(key=lambda x: x[1], reverse=True)
+        return multi_module_candidates[0][0]
+
     return None
+
+
+def find_all_source_roots(path: Path) -> List[Path]:
+    """
+    Find all Java source roots in a project (for multi-module projects).
+
+    Args:
+        path: Project root directory
+
+    Returns:
+        List of source root paths containing .java files
+    """
+    source_roots = []
+
+    # Search for all src/main/java directories in subdirectories
+    for pattern in ["src/main/java", "*/src/main/java", "*/*/src/main/java"]:
+        for candidate in path.glob(pattern):
+            if candidate.is_dir() and list(candidate.rglob("*.java")):
+                source_roots.append(candidate)
+
+    # Also try src/main/kotlin
+    for pattern in ["src/main/kotlin", "*/src/main/kotlin"]:
+        for candidate in path.glob(pattern):
+            if candidate.is_dir() and list(candidate.rglob("*.java")):
+                source_roots.append(candidate)
+
+    return source_roots
 
 
 def detect_main_package(source_root: Path) -> Optional[str]:
@@ -234,33 +302,88 @@ def detect_main_package(source_root: Path) -> Optional[str]:
     return main_package
 
 
+def detect_main_package_from_multiple_roots(source_roots: List[Path]) -> Optional[str]:
+    """
+    Detect the main application package from multiple source roots.
+    Aggregates package counts across all source roots.
+
+    Args:
+        source_roots: List of Java source root directories
+
+    Returns:
+        Main package prefix (e.g., 'com.company.project'), or None if not found
+    """
+    if not source_roots:
+        return None
+
+    package_counts = {}
+
+    # Aggregate packages from all source roots
+    for source_root in source_roots:
+        for java_file in source_root.rglob("*.java"):
+            try:
+                with open(java_file, "r", encoding="utf-8") as f:
+                    for line in f:
+                        line = line.strip()
+                        if line.startswith("package "):
+                            package = line[8:].rstrip(";").strip()
+                            parts = package.split(".")
+                            if len(parts) >= 3:
+                                root_package = ".".join(parts[:3])
+                                package_counts[root_package] = (
+                                    package_counts.get(root_package, 0) + 1
+                                )
+                            break
+            except Exception:
+                continue
+
+    if not package_counts:
+        return None
+
+    # Return the most common root package
+    main_package = max(package_counts.items(), key=lambda x: x[1])[0]
+    return main_package
+
+
 def resolve_include_prefixes(
-    include_prefix: Optional[List[str]], source_root: Optional[Path] = None
-) -> Optional[List[str]]:
+    include_prefix: Optional[List[str]], project_path: Optional[Path] = None
+) -> List[str]:
     """
     Resolve package prefixes to use for filtering.
 
     Logic:
-    - If --include-prefix is provided: Use user-specified prefixes
-    - Otherwise: Try to auto-detect main package from source code
-    - If detection fails: Return None (no filtering)
+    1. If --include-prefix is provided: Use user-specified prefixes
+    2. Try to auto-detect main package from source code (supports multi-module)
+    3. If detection fails: Use default prefixes (com.*, org.*, io.*)
 
     Args:
         include_prefix: User-specified prefixes (can be None or empty list)
-        source_root: Source root for auto-detection (optional)
+        project_path: Project root path for auto-detection (optional)
 
     Returns:
-        List of prefixes to include, or None for no filtering
+        List of prefixes to include (never returns None)
     """
     if include_prefix:
         # User specified custom prefixes
         return include_prefix
 
-    # Try to auto-detect main package
-    if source_root:
-        detected = detect_main_package(source_root)
-        if detected:
-            return [detected]
+    # Try to auto-detect main package from source code
+    if project_path:
+        # Find all source roots (supports multi-module projects)
+        source_roots = find_all_source_roots(project_path)
 
-    # Default: no filtering (show everything)
-    return None
+        if source_roots:
+            # Detect main package from all source roots
+            detected = detect_main_package_from_multiple_roots(source_roots)
+            if detected:
+                return [detected]
+
+        # Fallback: try single source root detection
+        source_root = auto_detect_source_root(project_path)
+        if source_root:
+            detected = detect_main_package(source_root)
+            if detected:
+                return [detected]
+
+    # Fallback: use default prefixes (excludes infrastructure like Spring, Azure, JDK)
+    return DEFAULT_PACKAGE_PREFIXES

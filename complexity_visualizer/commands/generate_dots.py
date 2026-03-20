@@ -39,16 +39,20 @@ def cmd_generate_dots(args) -> int:
         return 1
 
     # Resolve package filtering (always applies filtering)
-    include_prefixes = resolve_include_prefixes(args.include_prefix)
+    include_prefixes = resolve_include_prefixes(args.include_prefix, project_path)
 
     print(f"🔍 Generating .dot files for: {project_path.name}")
 
     if args.include_prefix:
+        # User explicitly provided prefixes
         print(f"   Filtering packages: {', '.join(include_prefixes)}")
+    elif include_prefixes:
+        # Auto-detected or default prefixes
+        print(f"   Auto-detected filtering: {', '.join(include_prefixes)}")
     else:
-        print(
-            f"   Default filtering: {', '.join(include_prefixes)} (excludes infrastructure)"
-        )
+        # No filtering (analyze everything)
+        print("   ⚠️  No package filtering applied (will analyze ALL dependencies)")
+        print("   Tip: Use --include-prefix to focus analysis")
 
     # Check if jdeps is available
     if not check_jdeps_available():

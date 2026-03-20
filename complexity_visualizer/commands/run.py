@@ -63,17 +63,21 @@ def cmd_run(args) -> int:
     source_root = Path(source_path) if source_path else None
 
     # Resolve package filtering with auto-detection
-    include_prefixes = resolve_include_prefixes(args.include_prefix, source_root)
+    # Pass project_path (not source_root) to support multi-module detection
+    include_prefixes = resolve_include_prefixes(args.include_prefix, project_path)
 
     if args.include_prefix:
         print(f"🔍 Filtering packages: {', '.join(args.include_prefix)}")
     elif include_prefixes:
-        print(f"🔍 Auto-detected package: {', '.join(include_prefixes)}")
-    else:
-        print(
-            "⚠️  No package filter (will analyze ALL dependencies including Spring, Azure, etc.)"
-        )
-        print("   Tip: Use --include-prefix to focus on your code")
+        # Show if auto-detected or using defaults
+        if include_prefixes == ["com.", "org.", "io."]:
+            print(
+                f"🔍 Using default filtering: {', '.join(include_prefixes)} (excludes infrastructure)"
+            )
+        else:
+            print(f"🔍 Auto-detected package: {', '.join(include_prefixes)}")
+
+    print()
 
     # Determine project name
     project_name = args.project if args.project else project_path.name

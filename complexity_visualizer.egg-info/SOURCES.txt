@@ -25,6 +25,7 @@ complexity_visualizer/core/metrics/algorithms.py
 complexity_visualizer/core/metrics/base.py
 complexity_visualizer/core/metrics/registry.py
 complexity_visualizer/core/metrics/calculators/__init__.py
+complexity_visualizer/core/metrics/calculators/architecture.py
 complexity_visualizer/core/metrics/calculators/coupling.py
 complexity_visualizer/core/metrics/calculators/cycles.py
 complexity_visualizer/core/metrics/calculators/degrees.py
@@ -38,3 +39,4 @@ complexity_visualizer/utils/__init__.py
 complexity_visualizer/utils/auto_detect.py
 complexity_visualizer/utils/browser_opener.py
 complexity_visualizer/utils/jdeps_runner.py
+tests/test_architecture_metrics.py
