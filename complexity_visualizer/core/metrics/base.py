@@ -60,7 +60,7 @@ class MetricCalculator(ABC):
         """Names of other metrics this one depends on.
 
         Used for dependency resolution and topological sorting.
-        Example: distanceFromMainSequence depends on ['abstractness', 'instability']
+        Example: hubScore depends on ['fanIn', 'fanOut']
 
         Returns:
             Set of metric names that must be computed before this one

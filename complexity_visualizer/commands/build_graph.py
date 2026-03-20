@@ -151,7 +151,7 @@ def cmd_build_graph(args) -> int:
             )
     else:
         print("\n⚠️  Note: Running without source code analysis (--source not provided)")
-        print("   Metrics affected: complexity=1, loc=0, abstractness=0")
+        print("   Metrics affected: complexity=1, loc=0")
         print("   Use --source <path> to enable full code analysis\n")
 
     # Compute metrics

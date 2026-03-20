@@ -1,6 +1,6 @@
 """Metric calculators for fan-in and fan-out (degree metrics)."""
 
-from typing import List
+from typing import List, Set
 
 from ..algorithms import compute_in_degrees, compute_out_degrees
 from ..base import MetricCalculator, MetricContext
@@ -42,3 +42,40 @@ class FanInCalculator(MetricCalculator):
 
     def calculate(self, context: MetricContext) -> List[int]:
         return compute_in_degrees(context.adjacency_list)
+
+
+class HubScoreCalculator(MetricCalculator):
+    """Calculator for hub score metric.
+
+    Hub score identifies God classes by detecting classes that are both
+    heavily depended upon (high fanIn) AND depend on many things (high fanOut).
+
+    Formula: hubScore = fanIn × fanOut
+
+    Why this works:
+    - High fanIn alone = shared interface (fine)
+    - High fanOut alone = orchestrator (fine)
+    - Both high = bottleneck (God class - dangerous)
+
+    A class with hubScore > 0 only when BOTH fanIn and fanOut are non-zero.
+    The multiplication amplifies only classes that sit at crossroads of the
+    dependency graph.
+    """
+
+    @property
+    def name(self) -> str:
+        return "hubScore"
+
+    @property
+    def description(self) -> str:
+        return "God class detector: fanIn × fanOut (high = bottleneck)"
+
+    @property
+    def dependencies(self) -> Set[str]:
+        return {"fanIn", "fanOut"}
+
+    def calculate(self, context: MetricContext) -> List[int]:
+        fan_in = context.cache["fanIn"]
+        fan_out = context.cache["fanOut"]
+
+        return [fan_in[i] * fan_out[i] for i in range(context.n_nodes)]

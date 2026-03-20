@@ -43,8 +43,7 @@ class NodeMetrics:
     bidirectionalLinks: int = 0
     crossPackageDeps: int = 0
     instability: float = 0.0
-    abstractness: float = 0.0
-    distanceFromMainSequence: float = 0.0
+    hubScore: int = 0
 
 
 @dataclass

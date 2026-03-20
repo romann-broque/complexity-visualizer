@@ -44,52 +44,35 @@ complexity-viz run ./monorepo \
 
 ## Metrics
 
-All metrics are **relative** — there are no universal thresholds. Look for outliers in your own project: the buildings that tower above the rest.
+All metrics are **relative** — there are no universal thresholds. Look for outliers in your own project: the buildings that tower above the rest. Metrics are conversation starters, not targets (Goodhart's Law).
 
 ### Structural (from dependency graph, always available)
 
-| Metric | Description |
-|--------|-------------|
-| **fanIn** | Classes that depend on this one (breaking change risk) |
-| **fanOut** | Dependencies this class has (responsibility sprawl) |
-| **transitiveDeps** | Total reachable dependencies, recursive (blast radius) |
-| **cycleParticipation** | Dependency cycle size, 0 = none (any >0 is worth investigating) |
-| **bidirectionalLinks** | Mutual dependencies A↔B (should be 0) |
-| **crossPackageDeps** | Distinct packages depended on (boundary violations) |
-| **instability** | `fanOut / (fanIn + fanOut)` — 0 = stable, 1 = unstable |
+| Metric | What it measures | How it differs |
+|--------|-----------------|----------------|
+| **fanIn** | Classes that directly depend on this one | Immediate incoming connections only |
+| **fanOut** | Classes this one directly depends on | Immediate outgoing connections only |
+| **transitiveDeps** | All classes reachable by following deps recursively | The full chain, not just direct neighbors — blast radius |
+| **cycleParticipation** | Size of the dependency cycle (0 = none) | Catches all circular deps (A→B→C→A), including bidirectional links |
+| **bidirectionalLinks** | Mutual dependencies A↔B | Special case: cycle of exactly 2 classes. Fix = add interface |
+| **crossPackageDeps** | Distinct packages depended on | Unlike fanOut which counts classes, this counts package boundaries crossed |
+| **instability** | `fanOut / (fanIn + fanOut)` | 0 = hard to change, 1 = easy to change. Neither is good or bad — depends on the class's role |
+| **hubScore** | `fanIn × fanOut` | God class detector: high only when a class is both heavily depended upon AND heavily depending |
 
-### Architecture (computed per package, always available)
-
-| Metric | Description |
-|--------|-------------|
-| **abstractness** | Ratio of interfaces + abstract classes to total classes in a package |
-| **distanceFromMainSequence** | `\|abstractness + instability - 1\|` — 0 = balanced, 1 = problematic |
-
-`distanceFromMainSequence` is the most discriminating architectural metric. It catches two problems: packages that are **stable but concrete** (rigid, painful to change) and packages that are **unstable but abstract** (over-engineered, useless contracts). A well-designed package sits near 0.
+A note on **instability**: the name is misleading. High instability means "easy to change safely" — few things depend on you. Low instability means "hard to change" — many dependents would break. A stable (low I) class should ideally be abstract (interface/contract). A concrete class with low instability is a risk.
 
 ### Code Analysis (requires `--source`)
 
-| Metric | Description |
-|--------|-------------|
-| **complexity** | Cyclomatic complexity (McCabe) |
-| **loc** | Lines of code (used as area metric for visual weight) |
+| Metric | What it measures |
+|--------|-----------------|
+| **complexity** | Cyclomatic complexity (McCabe) — execution paths through the code. Independent from the dependency graph. |
+| **loc** | Lines of code — used as area metric for visual weight in CodeCharta. |
 
 ---
 
 ## CodeCharta Configurations
 
-Each configuration answers one question.
-In CodeCharta, area = building footprint, height = building height, color = building color (green→red).
-
-### 🏛️ Architecture Compliance — *"Does our code follow the dependency rule?"*
-
-```
-Area:   loc
-Height: distanceFromMainSequence
-Color:  instability
-```
-
-A healthy project looks flat. Tall red buildings are violations — typically domain classes that depend on infrastructure.
+Each configuration answers one question. In CodeCharta: area = building footprint, height = building height, color = green→red gradient.
 
 ### 🔄 Dependency Cycles — *"Where are the circular dependencies?"*
 
@@ -99,7 +82,7 @@ Height: cycleParticipation
 Color:  transitiveDeps
 ```
 
-Flat map = no cycles. Tall buildings = large cycles. Prioritize breaking cycles on high-fanIn classes first.
+Flat map = no cycles. Tall red buildings = large cycles with high blast radius — fix these first. Prioritize breaking cycles on high-fanIn classes for maximum architectural payoff.
 
 ### 🔗 Tight Coupling — *"Which classes are locked together?"*
 
@@ -109,17 +92,27 @@ Height: bidirectionalLinks
 Color:  crossPackageDeps
 ```
 
-Tall red buildings = mutual dependencies crossing package boundaries. Fix with Dependency Inversion (introduce an interface).
+Tall red = mutual dependencies crossing package boundaries — high priority. Tall green = mutual deps within same package — lower priority. Fix with Dependency Inversion (introduce an interface).
 
 ### 🔥 Refactoring Hotspots — *"Where should we invest effort?"*
 
 ```
-Area:   loc
-Height: complexity (with --source) or fanOut (without)
-Color:  fanIn
+Area:   fanOut
+Height: complexity (with --source) or cycleParticipation (without)
+Color:  instability
 ```
 
-Tall + red + large = complex, heavily depended upon, and big. Highest refactoring ROI.
+The real hotspots are tall buildings that are NOT red: complex AND hard to change (low instability = many dependents). Tall red buildings are complex but easy to change — lower risk.
+
+### 👹 Hub Detection — *"Where are the God classes?"*
+
+```
+Area:   loc
+Height: hubScore
+Color:  cycleParticipation
+```
+
+Tall buildings = classes at the crossroads of the dependency graph (high fanIn × fanOut). Red = also in a cycle. These are the single biggest architectural risks — consider splitting them.
 
 ---
 
@@ -134,6 +127,19 @@ complexity-viz convert ./dist/my-project/my-project.metrics.json
 complexity-viz visualize ./dist/my-project/my-project.codecharta.cc.json
 ```
 
+## Before/After Comparison
+
+```bash
+# Before refactoring
+complexity-viz run ./project --no-open
+cp -r dist/project dist/project-before
+
+# After refactoring
+complexity-viz run ./project --no-open
+
+# Compare using CodeCharta's Delta mode
+```
+
 ## Troubleshooting
 
 | Problem | Solution |
@@ -145,6 +151,6 @@ complexity-viz visualize ./dist/my-project/my-project.codecharta.cc.json
 
 ## References
 
-- Robert C. Martin — *Clean Architecture* (instability, abstractness, distance from main sequence)
+- Robert C. Martin — *Clean Code*, *Agile Software Development: Principles, Patterns, and Practices*
 - Thomas McCabe — *A Complexity Measure*, 1976
 - [CodeCharta](https://codecharta.com/)

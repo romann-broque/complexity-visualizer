@@ -63,8 +63,7 @@ def convert_to_codecharta(
             "bidirectionalLinks": metrics.get("bidirectionalLinks", 0),
             "crossPackageDeps": metrics.get("crossPackageDeps", 0),
             "instability": metrics.get("instability", 0.0),
-            "abstractness": metrics.get("abstractness", 0.0),
-            "distanceFromMainSequence": metrics.get("distanceFromMainSequence", 0.0),
+            "hubScore": metrics.get("hubScore", 0),
         }
 
         path = _add_node(root, fqn, attrs)
@@ -115,25 +114,24 @@ def convert_to_codecharta(
             "bidirectionalLinks": "absolute",
             "crossPackageDeps": "absolute",
             "instability": "relative",
-            "abstractness": "relative",
-            "distanceFromMainSequence": "relative",
+            "hubScore": "absolute",
         },
         "attributeDescriptors": {
             "fanIn": {
                 "title": "Fan In",
-                "description": "Classes that depend on this one (breaking change risk)",
+                "description": "Classes that directly depend on this one (breaking change risk)",
             },
             "fanOut": {
                 "title": "Fan Out",
-                "description": "Dependencies this class has (responsibility sprawl)",
+                "description": "Classes this one directly depends on (responsibility sprawl)",
             },
             "transitiveDeps": {
                 "title": "Transitive Dependencies",
-                "description": "Total reachable dependencies, recursive (blast radius)",
+                "description": "All classes reachable by following deps recursively (blast radius)",
             },
             "complexity": {
                 "title": "Cyclomatic Complexity",
-                "description": "McCabe complexity (number of decision points)",
+                "description": "McCabe complexity — execution paths through the code",
             },
             "loc": {
                 "title": "Lines of Code",
@@ -141,27 +139,23 @@ def convert_to_codecharta(
             },
             "cycleParticipation": {
                 "title": "Cycle Participation",
-                "description": "Dependency cycle size, 0 = none",
+                "description": "Size of dependency cycle (0 = none)",
             },
             "bidirectionalLinks": {
                 "title": "Bidirectional Links",
-                "description": "Mutual dependencies A↔B",
+                "description": "Mutual dependencies A↔B (fix: add interface)",
             },
             "crossPackageDeps": {
                 "title": "Cross Package Dependencies",
-                "description": "Distinct packages depended on",
+                "description": "Distinct packages depended on (boundary violations)",
             },
             "instability": {
                 "title": "Instability",
-                "description": "fanOut / (fanIn + fanOut) — 0 = stable, 1 = unstable",
+                "description": "fanOut / (fanIn + fanOut) — 1 = easy to change, 0 = hard to change",
             },
-            "abstractness": {
-                "title": "Abstractness",
-                "description": "Ratio of interfaces and abstract classes to total classes in the package (0=concrete, 1=abstract)",
-            },
-            "distanceFromMainSequence": {
-                "title": "Distance from Main Sequence",
-                "description": "Distance from the ideal balance of abstractness and stability (0=balanced, 1=problematic)",
+            "hubScore": {
+                "title": "Hub Score",
+                "description": "fanIn × fanOut — God class detector (high = bottleneck)",
             },
         },
     }

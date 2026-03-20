@@ -6,12 +6,13 @@ or removed by simply editing this file.
 """
 
 from ..registry import get_registry
-from . import architecture, coupling, cycles, degrees, stability, transitive
+from . import coupling, cycles, degrees, stability, transitive
 
 _registry = get_registry()
 
 _registry.register(degrees.FanInCalculator)
 _registry.register(degrees.FanOutCalculator)
+_registry.register(degrees.HubScoreCalculator)
 _registry.register(transitive.TransitiveDepsCalculator)
 
 _registry.register(cycles.CycleParticipationCalculator)
@@ -20,6 +21,3 @@ _registry.register(coupling.BidirectionalLinksCalculator)
 _registry.register(coupling.CrossPackageDepsCalculator)
 
 _registry.register(stability.InstabilityCalculator)
-
-_registry.register(architecture.AbstractnessCalculator)
-_registry.register(architecture.DistanceFromMainSequenceCalculator)
