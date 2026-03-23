@@ -165,8 +165,11 @@ def cmd_build_graph(args) -> int:
         traceback.print_exc()
         return 1
 
-    # Set up output directory
-    output_dir = Path(args.output).resolve()
+    # Set up output directory (default to parent of dot_dir if not specified)
+    if hasattr(args, "output") and args.output:
+        output_dir = Path(args.output).resolve()
+    else:
+        output_dir = dot_dir.parent
     output_dir.mkdir(parents=True, exist_ok=True)
 
     # Add project name to metadata

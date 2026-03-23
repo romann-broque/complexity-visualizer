@@ -3,6 +3,7 @@
 from typing import List
 
 from ..base import MetricCalculator, MetricContext
+from ..utils import is_class_node
 
 
 class BidirectionalLinksCalculator(MetricCalculator):
@@ -12,7 +13,7 @@ class BidirectionalLinksCalculator(MetricCalculator):
     (A→B AND B→A). This is a strong indicator of tight coupling.
 
     Note: This excludes cycles already detected by SCC analysis, focusing
-    on direct mutual dependencies.
+    on direct mutual dependencies. Only considers class-to-class dependencies.
     """
 
     @property
@@ -28,8 +29,13 @@ class BidirectionalLinksCalculator(MetricCalculator):
         bidirectional = [0] * context.n_nodes
 
         for i in range(context.n_nodes):
+            # Skip package nodes
+            if not is_class_node(context.graph.nodes[i].id):
+                continue
+
             for j in adj[i]:
-                if i in adj[j]:
+                # Only count bidirectional links between classes
+                if is_class_node(context.graph.nodes[j].id) and i in adj[j]:
                     bidirectional[i] += 1
 
         return bidirectional

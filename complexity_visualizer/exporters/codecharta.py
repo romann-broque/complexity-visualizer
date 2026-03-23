@@ -186,4 +186,4 @@ def _add_node(root: CCNode, fqn: str, attrs: Dict) -> str:
     file_node = CCNode(name=class_name, type="File", attributes=attrs)
     current.children.append(file_node)
 
-    return "/" + "/".join(segments)
+    return "/" + root.name + "/" + "/".join(segments)
