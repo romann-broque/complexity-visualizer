@@ -2,6 +2,8 @@
 
 Analyze Java project dependencies and visualize architecture with [CodeCharta](https://codecharta.com/).
 
+!["Beautiful 3D rendering of a codebase"](images/Screenshot1.png)
+
 ## Quick Start
 
 **Prerequisites:** Python ≥ 3.9, Java JDK ≥ 11, compiled Java project.
